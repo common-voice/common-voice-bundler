@@ -1,0 +1,16 @@
+{
+  "name": "common-voice-bundle-and-anonymize",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MPL-2.0",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "aws-sdk": "^2.383.0",
+    "convict": "^4.4.1",
+    "fast-csv": "^2.4.1",
+    "mysql": "^2.16.0",
+    "yazl": "^2.5.1"
+  }
+}
