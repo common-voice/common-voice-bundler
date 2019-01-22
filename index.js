@@ -4,6 +4,7 @@ const readline = require('readline');
 const { PassThrough } = require('stream');
 const S3 = require('aws-sdk/clients/s3');
 const csv = require('fast-csv');
+const mp3Duration = require('mp3-duration');
 const mysql = require('mysql');
 const yazl = require('yazl');
 const config = require('./config');
@@ -145,12 +146,14 @@ const downloadClips = () => {
   });
 };
 
-const bundleClips = () => {
-  const dirs = fs
+function getLocaleDirs() {
+  return fs
     .readdirSync(OUT_DIR)
     .filter(f => fs.statSync(path.join(OUT_DIR, f)).isDirectory());
+}
 
-  return dirs.reduce((promise, locale) => {
+const bundleClips = () =>
+  getLocaleDirs().reduce((promise, locale) => {
     return promise.then(() => {
       console.log('archiving & uploading', locale);
 
@@ -176,8 +179,45 @@ const bundleClips = () => {
         .catch(err => console.error(err));
     });
   }, Promise.resolve());
+
+function toHHMMSS(totalSeconds) {
+  let hours = Math.floor(totalSeconds / 3600);
+  let minutes = Math.floor((totalSeconds - hours * 3600) / 60);
+  let seconds = Math.round(totalSeconds - hours * 3600 - minutes * 60);
+
+  if (hours < 10) {
+    hours = '0' + hours;
+  }
+  if (minutes < 10) {
+    minutes = '0' + minutes;
+  }
+  if (seconds < 10) {
+    seconds = '0' + seconds;
+  }
+  return hours + ':' + minutes + ':' + seconds;
+}
+
+const logStats = async () => {
+  for (const locale of getLocaleDirs()) {
+    const localePath = path.join(OUT_DIR, locale);
+    const files = await fs.readdirSync(localePath);
+    const duration = await files.reduce(
+      (promise, file) =>
+        promise.then(
+          async sum => sum + (await mp3Duration(path.join(localePath, file)))
+        ),
+      Promise.resolve(0)
+    );
+    console.log(
+      locale,
+      'clips:',
+      files.length,
+      'duration:',
+      toHHMMSS(duration)
+    );
+  }
 };
 
 downloadClips()
-  .then(bundleClips)
+  .then(() => Promise.all([bundleClips(), logStats()]))
   .catch(e => console.error(e));
