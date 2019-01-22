@@ -17,15 +17,6 @@ const { accessKeyId, secretAccessKey, name: outBucketName } = config.get(
   'outBucket'
 );
 
-const { host, user, password, database } = config.get('db');
-const db = mysql.createConnection({
-  host,
-  user,
-  password,
-  database
-});
-db.connect();
-
 const outBucket = new S3({
   credentials: {
     accessKeyId,
@@ -75,6 +66,15 @@ const getClipFile = path => {
 };
 
 const downloadClips = () => {
+  const { host, user, password, database } = config.get('db');
+  const db = mysql.createConnection({
+    host,
+    user,
+    password,
+    database
+  });
+  db.connect();
+
   return new Promise(resolve => {
     let activeDownloads = 0;
     let rowIndex = 0;
