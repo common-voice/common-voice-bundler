@@ -218,6 +218,8 @@ const logStats = async () => {
   }
 };
 
-downloadClips()
-  .then(() => Promise.all([bundleClips(), logStats()]))
+(config.get('skipDownload') ? Promise.resolve() : downloadClips())
+  .then(() =>
+    Promise.all([config.get('skipBundling') ? null : bundleClips(), logStats()])
+  )
   .catch(e => console.error(e));
