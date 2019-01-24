@@ -8,7 +8,7 @@ const mp3Duration = require('mp3-duration');
 const mysql = require('mysql');
 const yazl = require('yazl');
 const config = require('./config');
-const { hash, logProgress, mkDirByPathSync } = require('./helpers');
+const { hash, logProgress, mkDirByPathSync, objectMap } = require('./helpers');
 
 const TSV_OPTIONS = { headers: true, delimiter: '\t', quote: null };
 const OUT_DIR = 'out';
@@ -37,16 +37,22 @@ const createAndUploadClipsTSVArchive = () => {
 
   archive.end();
 
-  const managedUpload = outBucket.upload({
-    Body: archivePassThrough,
-    Bucket: 'common-voice-data-download',
-    Key: `${releaseDir}/clips.tsv.zip`
-  });
+  let managedUpload;
+  if (!config.get('skipBundling')) {
+    managedUpload = outBucket.upload({
+      Body: archivePassThrough,
+      Bucket: 'common-voice-data-download',
+      Key: `${releaseDir}/clips.tsv.zip`
+    });
+  }
 
   const tsvStream = csv.createWriteStream(TSV_OPTIONS);
   tsvStream.pipe(tsvPassThrough);
 
-  return [tsvStream, managedUpload.promise()];
+  return [
+    tsvStream,
+    managedUpload ? managedUpload.promise() : Promise.resolve()
+  ];
 };
 
 const getClipFile = path => {
@@ -65,7 +71,7 @@ const getClipFile = path => {
   });
 };
 
-const downloadClips = () => {
+const processAndDownloadClips = () => {
   const { host, user, password, database } = config.get('db');
   const db = mysql.createConnection({
     host,
@@ -97,10 +103,26 @@ const downloadClips = () => {
       }
     };
 
+    const localeSplits = {};
     db.query(fs.readFileSync(path.join(__dirname, 'query.sql'), 'utf-8'))
       .on('result', row => {
         rowIndex++;
         renderProgress();
+
+        const { splits, usersSet } =
+          localeSplits[row.locale] ||
+          (localeSplits[row.locale] = {
+            splits: { total: 0, accent: {}, age: {}, gender: {} },
+            usersSet: new Set()
+          });
+        splits.total++;
+
+        for (const key of Object.keys(splits).filter(key => key != 'filter')) {
+          const value = row[key];
+          splits[key][value] = (splits[key][value] || 0) + 1;
+        }
+
+        usersSet.add(row.client_id);
 
         const newPath = hash(row.path);
         tsvStream.write({
@@ -112,7 +134,7 @@ const downloadClips = () => {
         const fileDir = path.join(OUT_DIR, row.locale);
         const soundFilePath = path.join(fileDir, newPath + '.mp3');
 
-        if (fs.existsSync(soundFilePath)) {
+        if (config.get('skipDownload') || fs.existsSync(soundFilePath)) {
           return;
         }
 
@@ -142,6 +164,23 @@ const downloadClips = () => {
         readAllRows = true;
         tsvStream.end();
         cleanUp();
+        console.log(
+          JSON.stringify(
+            objectMap(localeSplits, ({ splits, usersSet }) => ({
+              splits: Object.assign(
+                ...Object.entries(splits)
+                  .filter(key => key != 'total')
+                  .map(([key, values]) => [
+                    key,
+                    objectMap(values, value =>
+                      Number((value / splits.total).toFixed(2))
+                    )
+                  ])
+              ),
+              users: usersSet.size
+            }))
+          )
+        );
       });
   });
 };
@@ -218,7 +257,7 @@ const logStats = async () => {
   }
 };
 
-(config.get('skipDownload') ? Promise.resolve() : downloadClips())
+processAndDownloadClips()
   .then(() =>
     Promise.all([config.get('skipBundling') ? null : bundleClips(), logStats()])
   )
