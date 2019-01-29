@@ -18,10 +18,6 @@ const { accessKeyId, secretAccessKey, name: outBucketName } = config.get(
 );
 
 const outBucket = new S3({
-  credentials: {
-    accessKeyId,
-    secretAccessKey
-  },
   region: 'us-west-2'
 });
 const releaseDir = 'cv-corpus-' + new Date().toISOString();
@@ -41,7 +37,7 @@ const createAndUploadClipsTSVArchive = () => {
   if (!config.get('skipBundling')) {
     managedUpload = outBucket.upload({
       Body: archivePassThrough,
-      Bucket: 'common-voice-data-download',
+      Bucket: outBucketName,
       Key: `${releaseDir}/clips.tsv.zip`
     });
   }
@@ -60,10 +56,6 @@ const getClipFile = path => {
     'clipBucket'
   );
   return new S3({
-    credentials: {
-      accessKeyId,
-      secretAccessKey
-    },
     region
   }).getObject({
     Bucket: name,
