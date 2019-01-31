@@ -108,6 +108,27 @@ const processAndDownloadClips = () => {
         db.end();
         console.log('');
         tsvUploadPromise.then(resolve);
+        const demographics = JSON.stringify(
+          objectMap(localeSplits, ({ splits, usersSet }) => ({
+            splits: Object.entries(splits)
+              .filter(key => key != 'total')
+              .reduce((result, [key, values]) => {
+                result[key] = objectMap(values, value =>
+                  Number((value / splits.total).toFixed(2))
+                );
+                return result;
+              }, {}),
+            users: usersSet.size
+          })),
+          null,
+          2
+        );
+        console.log(demographics);
+        outBucket.putObject({
+          Body: demographics,
+          Bucket: outBucketName,
+          Key: `${releaseDir}/demographic.json`
+        });
       }
     };
 
@@ -172,23 +193,6 @@ const processAndDownloadClips = () => {
         readAllRows = true;
         tsvStream.end();
         cleanUp();
-        console.log(
-          JSON.stringify(
-            objectMap(localeSplits, ({ splits, usersSet }) => ({
-              splits: Object.assign(
-                ...Object.entries(splits)
-                  .filter(key => key != 'total')
-                  .map(([key, values]) => [
-                    key,
-                    objectMap(values, value =>
-                      Number((value / splits.total).toFixed(2))
-                    )
-                  ])
-              ),
-              users: usersSet.size
-            }))
-          )
-        );
       });
   });
 };
