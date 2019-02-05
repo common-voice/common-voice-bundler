@@ -8,7 +8,7 @@ const merge = require('lodash.merge');
 const mp3Duration = require('mp3-duration');
 const mysql = require('mysql');
 const { spawn } = require('promisify-child-process');
-const yazl = require('yazl');
+const tar = require('tar');
 const config = require('./config');
 const {
   countFileLines,
@@ -240,13 +240,13 @@ const archiveAndUpload = () =>
       });
       logProgress(managedUpload);
 
-      const archive = new yazl.ZipFile();
       const localeDir = path.join(OUT_DIR, locale);
-      for (const file of fs.readdirSync(localeDir)) {
-        archive.addFile(path.join(localeDir, file), file);
-      }
-      archive.outputStream.pipe(stream);
-      archive.end();
+      tar
+        .c(
+          { gzip: true },
+          fs.readdirSync(localeDir).map(file => path.join(localeDir, file))
+        )
+        .pipe(stream);
 
       return managedUpload
         .promise()
@@ -255,23 +255,28 @@ const archiveAndUpload = () =>
     });
   }, Promise.resolve());
 
+const collectAndUplodatStats = async demographics => {
+  const stats = merge(
+    ...(await Promise.all([
+      demographics,
+      countBuckets(),
+      countClipsAndDuration()
+    ]))
+  );
+  console.dir(stats, { depth: null, colors: true });
+  return outBucket
+    .putObject({
+      Body: JSON.stringify(stats),
+      Bucket: outBucketName,
+      Key: `${releaseDir}/stats.json`
+    })
+    .promise();
+};
+
 processAndDownloadClips()
-  .then(demographics =>
-    Promise.all([demographics, countBuckets(), countClipsAndDuration()])
-  )
-  .then(stats => merge(...stats))
-  .then(stats => {
-    console.dir(stats, { depth: null, colors: true });
-    return (
+  .then(
+    demographics =>
       !config.get('skipBundling') &&
-      Promise.all([
-        outBucket.putObject({
-          Body: stats,
-          Bucket: outBucketName,
-          Key: `${releaseDir}/stats.json`
-        }),
-        archiveAndUpload()
-      ])
-    );
-  })
+      Promise.all([collectAndUplodatStats(demographics) archiveAndUpload()])
+  )
   .catch(e => console.error(e));
