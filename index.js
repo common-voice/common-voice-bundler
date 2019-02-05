@@ -4,14 +4,23 @@ const readline = require('readline');
 const { PassThrough } = require('stream');
 const S3 = require('aws-sdk/clients/s3');
 const csv = require('fast-csv');
+const merge = require('lodash.merge');
 const mp3Duration = require('mp3-duration');
 const mysql = require('mysql');
+const { spawn } = require('promisify-child-process');
 const yazl = require('yazl');
 const config = require('./config');
-const { hash, logProgress, mkDirByPathSync, objectMap } = require('./helpers');
+const {
+  countFileLines,
+  hash,
+  logProgress,
+  mkDirByPathSync,
+  objectMap
+} = require('./helpers');
 
 const TSV_OPTIONS = { headers: true, delimiter: '\t', quote: null };
 const OUT_DIR = 'out';
+const TSV_PATH = path.join(OUT_DIR, 'clips.tsv');
 
 const { accessKeyId, secretAccessKey, name: outBucketName } = config.get(
   'outBucket'
@@ -28,38 +37,9 @@ const outBucket = new S3({
     : {}),
   region: 'us-west-2'
 });
-const releaseDir = 'cv-corpus-' + new Date().toISOString();
+const releaseDir = 'cv-corpus-' + new Date().toISOString().split('T')[0];
 
-const createAndUploadClipsTSVArchive = () => {
-  const archive = new yazl.ZipFile();
-
-  const tsvPassThrough = new PassThrough();
-  archive.addReadStream(tsvPassThrough, 'clips.tsv');
-
-  const archivePassThrough = new PassThrough();
-  archive.outputStream.pipe(archivePassThrough);
-
-  archive.end();
-
-  let managedUpload;
-  if (!config.get('skipBundling')) {
-    managedUpload = outBucket.upload({
-      Body: archivePassThrough,
-      Bucket: outBucketName,
-      Key: `${releaseDir}/clips.tsv.zip`
-    });
-  }
-
-  const tsvStream = csv.createWriteStream(TSV_OPTIONS);
-  tsvStream.pipe(tsvPassThrough);
-
-  return [
-    tsvStream,
-    managedUpload ? managedUpload.promise() : Promise.resolve()
-  ];
-};
-
-const getClipFile = path => {
+const downloadClipFile = path => {
   const { accessKeyId, secretAccessKey, name, region } = config.get(
     'clipBucket'
   );
@@ -78,6 +58,20 @@ const getClipFile = path => {
     Key: path
   });
 };
+
+function formatDemographics(localeSplits) {
+  return objectMap(localeSplits, ({ splits, usersSet }) => ({
+    splits: Object.entries(splits)
+      .filter(([key]) => key != 'total')
+      .reduce((result, [key, values]) => {
+        result[key] = objectMap(values, value =>
+          Number((value / splits.total).toFixed(2))
+        );
+        return result;
+      }, {}),
+    users: usersSet.size
+  }));
+}
 
 const processAndDownloadClips = () => {
   const { host, user, password, database } = config.get('db');
@@ -100,35 +94,15 @@ const processAndDownloadClips = () => {
       );
     };
 
-    const [tsvStream, tsvUploadPromise] = createAndUploadClipsTSVArchive();
+    const tsvStream = csv.createWriteStream(TSV_OPTIONS);
+    tsvStream.pipe(fs.createWriteStream(TSV_PATH));
 
     let readAllRows = false;
     const cleanUp = () => {
       if (readAllRows && activeDownloads == 0) {
         db.end();
         console.log('');
-        tsvUploadPromise.then(resolve);
-        const demographics = JSON.stringify(
-          objectMap(localeSplits, ({ splits, usersSet }) => ({
-            splits: Object.entries(splits)
-              .filter(key => key != 'total')
-              .reduce((result, [key, values]) => {
-                result[key] = objectMap(values, value =>
-                  Number((value / splits.total).toFixed(2))
-                );
-                return result;
-              }, {}),
-            users: usersSet.size
-          })),
-          null,
-          2
-        );
-        console.log(demographics);
-        outBucket.putObject({
-          Body: demographics,
-          Bucket: outBucketName,
-          Key: `${releaseDir}/demographic.json`
-        });
+        resolve(formatDemographics(localeSplits));
       }
     };
 
@@ -160,8 +134,8 @@ const processAndDownloadClips = () => {
           path: newPath
         });
 
-        const fileDir = path.join(OUT_DIR, row.locale);
-        const soundFilePath = path.join(fileDir, newPath + '.mp3');
+        const clipsDir = path.join(OUT_DIR, row.locale, 'clips');
+        const soundFilePath = path.join(clipsDir, newPath + '.mp3');
 
         if (config.get('skipDownload') || fs.existsSync(soundFilePath)) {
           return;
@@ -173,8 +147,8 @@ const processAndDownloadClips = () => {
 
         activeDownloads++;
 
-        mkDirByPathSync(fileDir);
-        getClipFile(row.path)
+        mkDirByPathSync(clipsDir);
+        downloadClipFile(row.path)
           .createReadStream()
           .pipe(fs.createWriteStream(soundFilePath))
           .on('finish', () => {
@@ -203,7 +177,57 @@ function getLocaleDirs() {
     .filter(f => fs.statSync(path.join(OUT_DIR, f)).isDirectory());
 }
 
-const bundleClips = () =>
+const countBuckets = async () => {
+  const child = await spawn('create-corpora', ['-f', TSV_PATH, '-d', OUT_DIR], {
+    encoding: 'utf8'
+  });
+  if (child.error) {
+    throw child.error;
+  }
+
+  const buckets = {};
+  for (const locale of getLocaleDirs()) {
+    const localePath = path.join(OUT_DIR, locale);
+    const localeBuckets = (await fs.readdirSync(localePath))
+      .filter(file => file.endsWith('.tsv'))
+      .map(async fileName => [
+        fileName,
+        Math.max((await countFileLines(path.join(localePath, fileName))) - 1, 0)
+      ]);
+    buckets[locale] = {
+      buckets: (await Promise.all(localeBuckets)).reduce(
+        (obj, [key, count]) => {
+          obj[key.split('.tsv')[0]] = count;
+          return obj;
+        },
+        {}
+      )
+    };
+  }
+  return buckets;
+};
+
+const countClipsAndDuration = async () => {
+  const durations = {};
+  for (const locale of getLocaleDirs()) {
+    const clipsPath = path.join(OUT_DIR, locale, 'clips');
+    const files = await fs.readdirSync(clipsPath);
+    const duration = await files.reduce(
+      (promise, file) =>
+        promise.then(
+          async sum => sum + (await mp3Duration(path.join(clipsPath, file)))
+        ),
+      Promise.resolve(0)
+    );
+    durations[locale] = {
+      clips: files.length,
+      duration: Math.floor(duration)
+    };
+  }
+  return durations;
+};
+
+const archiveAndUpload = () =>
   getLocaleDirs().reduce((promise, locale) => {
     return promise.then(() => {
       console.log('archiving & uploading', locale);
@@ -231,46 +255,23 @@ const bundleClips = () =>
     });
   }, Promise.resolve());
 
-function toHHMMSS(totalSeconds) {
-  let hours = Math.floor(totalSeconds / 3600);
-  let minutes = Math.floor((totalSeconds - hours * 3600) / 60);
-  let seconds = Math.round(totalSeconds - hours * 3600 - minutes * 60);
-
-  if (hours < 10) {
-    hours = '0' + hours;
-  }
-  if (minutes < 10) {
-    minutes = '0' + minutes;
-  }
-  if (seconds < 10) {
-    seconds = '0' + seconds;
-  }
-  return hours + ':' + minutes + ':' + seconds;
-}
-
-const logStats = async () => {
-  for (const locale of getLocaleDirs()) {
-    const localePath = path.join(OUT_DIR, locale);
-    const files = await fs.readdirSync(localePath);
-    const duration = await files.reduce(
-      (promise, file) =>
-        promise.then(
-          async sum => sum + (await mp3Duration(path.join(localePath, file)))
-        ),
-      Promise.resolve(0)
-    );
-    console.log(
-      locale,
-      'clips:',
-      files.length,
-      'duration:',
-      toHHMMSS(duration)
-    );
-  }
-};
-
 processAndDownloadClips()
-  .then(() =>
-    Promise.all([config.get('skipBundling') ? null : bundleClips(), logStats()])
+  .then(demographics =>
+    Promise.all([demographics, countBuckets(), countClipsAndDuration()])
   )
+  .then(stats => merge(...stats))
+  .then(stats => {
+    console.dir(stats, { depth: null, colors: true });
+    return (
+      !config.get('skipBundling') &&
+      Promise.all([
+        outBucket.putObject({
+          Body: stats,
+          Bucket: outBucketName,
+          Key: `${releaseDir}/stats.json`
+        }),
+        archiveAndUpload()
+      ])
+    );
+  })
   .catch(e => console.error(e));

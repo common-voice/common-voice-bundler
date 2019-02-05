@@ -11,6 +11,25 @@ function bytesToSize(bytes) {
   return Math.round(bytes / Math.pow(1024, i), 2) + ' ' + sizes[i];
 }
 
+function countFileLines(filePath) {
+  return new Promise((resolve, reject) => {
+    let lineCount = 0;
+    fs.createReadStream(filePath)
+      .on('data', buffer => {
+        let idx = -1;
+        lineCount--; // Because the loop will run once for idx=-1
+        do {
+          idx = buffer.indexOf(10, idx + 1);
+          lineCount++;
+        } while (idx !== -1);
+      })
+      .on('end', () => {
+        resolve(lineCount);
+      })
+      .on('error', reject);
+  });
+}
+
 function hash(row) {
   return crypto
     .pbkdf2Sync(row, config.get('salt'), 1000, 64, 'sha512')
@@ -61,4 +80,10 @@ function objectMap(object, mapFn) {
   }, {});
 }
 
-module.exports = { hash, logProgress, mkDirByPathSync, objectMap };
+module.exports = {
+  countFileLines,
+  hash,
+  logProgress,
+  mkDirByPathSync,
+  objectMap
+};
