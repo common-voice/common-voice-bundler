@@ -236,16 +236,13 @@ const archiveAndUpload = () =>
       const managedUpload = outBucket.upload({
         Body: stream,
         Bucket: outBucketName,
-        Key: `${releaseDir}/${locale}.zip`
+        Key: `${releaseDir}/${locale}.tar.gz`
       });
       logProgress(managedUpload);
 
       const localeDir = path.join(OUT_DIR, locale);
       tar
-        .c(
-          { gzip: true },
-          fs.readdirSync(localeDir).map(file => path.join(localeDir, file))
-        )
+        .c({ gzip: true, cwd: localeDir }, fs.readdirSync(localeDir))
         .pipe(stream);
 
       return managedUpload
@@ -277,6 +274,6 @@ processAndDownloadClips()
   .then(
     demographics =>
       !config.get('skipBundling') &&
-      Promise.all([collectAndUplodatStats(demographics) archiveAndUpload()])
+      Promise.all([collectAndUplodatStats(demographics), archiveAndUpload()])
   )
   .catch(e => console.error(e));
