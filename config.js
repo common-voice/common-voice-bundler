@@ -60,6 +60,10 @@ const config = convict({
     format: String,
     sensitive: true,
     default: ''
+  },
+  skipBundling: {
+    format: Boolean,
+    default: false
   }
 });
 

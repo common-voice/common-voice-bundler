@@ -5,7 +5,6 @@ const { PassThrough } = require('stream');
 const S3 = require('aws-sdk/clients/s3');
 const csv = require('fast-csv');
 const merge = require('lodash.merge');
-const mp3Duration = require('mp3-duration');
 const mysql = require('mysql');
 const { spawn } = require('promisify-child-process');
 const tar = require('tar');
@@ -59,16 +58,12 @@ const downloadClipFile = path => {
   });
 };
 
-function formatDemographics(localeSplits) {
-  return objectMap(localeSplits, ({ splits, usersSet }) => ({
-    splits: Object.entries(splits)
-      .filter(([key]) => key != 'total')
-      .reduce((result, [key, values]) => {
-        result[key] = objectMap(values, value =>
-          Number((value / splits.total).toFixed(2))
-        );
-        return result;
-      }, {}),
+function formatStats(localeSplits) {
+  return objectMap(localeSplits, ({ clips, splits, usersSet }) => ({
+    clips,
+    splits: objectMap(splits, values =>
+      objectMap(values, value => Number((value / clips).toFixed(2)))
+    ),
     users: usersSet.size
   }));
 }
@@ -102,23 +97,25 @@ const processAndDownloadClips = () => {
       if (readAllRows && activeDownloads == 0) {
         db.end();
         console.log('');
-        resolve(formatDemographics(localeSplits));
+        resolve(formatStats(stats));
       }
     };
 
-    const localeSplits = {};
+    const stats = {};
     db.query(fs.readFileSync(path.join(__dirname, 'query.sql'), 'utf-8'))
       .on('result', row => {
         rowIndex++;
         renderProgress();
 
-        const { splits, usersSet } =
-          localeSplits[row.locale] ||
-          (localeSplits[row.locale] = {
-            splits: { total: 0, accent: {}, age: {}, gender: {} },
+        const localeStats =
+          stats[row.locale] ||
+          (stats[row.locale] = {
+            clips: 0,
+            splits: { accent: {}, age: {}, gender: {} },
             usersSet: new Set()
           });
-        splits.total++;
+        const { splits, usersSet } = localeStats;
+        localeStats.clips++;
 
         for (const key of Object.keys(splits).filter(key => key != 'filter')) {
           const value = row[key];
@@ -207,21 +204,19 @@ const countBuckets = async () => {
   return buckets;
 };
 
-const countClipsAndDuration = async () => {
+const sumDurations = async () => {
   const durations = {};
   for (const locale of getLocaleDirs()) {
-    const clipsPath = path.join(OUT_DIR, locale, 'clips');
-    const files = await fs.readdirSync(clipsPath);
-    const duration = await files.reduce(
-      (promise, file) =>
-        promise.then(
-          async sum => sum + (await mp3Duration(path.join(clipsPath, file)))
-        ),
-      Promise.resolve(0)
-    );
     durations[locale] = {
-      clips: files.length,
-      duration: Math.floor(duration)
+      duration: Number(
+        (await spawn(
+          'mp3-duration-sum',
+          [path.join(OUT_DIR, locale, 'clips')],
+          {
+            encoding: 'utf8'
+          }
+        )).stdout
+      )
     };
   }
   return durations;
@@ -253,15 +248,11 @@ const archiveAndUpload = () =>
     });
   }, Promise.resolve());
 
-const collectAndUplodatStats = async demographics => {
+const collectAndUplodatStats = async dbStats => {
   const stats = {
     bundleURLTemplate: `https://${outBucketName}.s3.amazonaws.com/${releaseDir}/{locale}.tar.gz`,
     locales: merge(
-      ...(await Promise.all([
-        demographics,
-        countBuckets(),
-        countClipsAndDuration()
-      ]))
+      ...(await Promise.all([dbStats, countBuckets(), sumDurations()]))
     )
   };
   console.dir(stats, { depth: null, colors: true });
@@ -276,7 +267,10 @@ const collectAndUplodatStats = async demographics => {
 };
 
 processAndDownloadClips()
-  .then(demographics =>
-    Promise.all([collectAndUplodatStats(demographics), archiveAndUpload()])
+  .then(stats =>
+    Promise.all([
+      collectAndUplodatStats(stats),
+      config.get('skipBundling') ? Promise.resolve() : archiveAndUpload()
+    ])
   )
   .catch(e => console.error(e));
