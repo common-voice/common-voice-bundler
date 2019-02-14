@@ -137,7 +137,7 @@ const processAndDownloadClips = () => {
         const clipsDir = path.join(OUT_DIR, row.locale, 'clips');
         const soundFilePath = path.join(clipsDir, newPath + '.mp3');
 
-        if (config.get('skipDownload') || fs.existsSync(soundFilePath)) {
+        if (fs.existsSync(soundFilePath)) {
           return;
         }
 
@@ -236,7 +236,8 @@ const archiveAndUpload = () =>
       const managedUpload = outBucket.upload({
         Body: stream,
         Bucket: outBucketName,
-        Key: `${releaseDir}/${locale}.tar.gz`
+        Key: `${releaseDir}/${locale}.tar.gz`,
+        ACL: 'public-read'
       });
       logProgress(managedUpload);
 
@@ -253,27 +254,29 @@ const archiveAndUpload = () =>
   }, Promise.resolve());
 
 const collectAndUplodatStats = async demographics => {
-  const stats = merge(
-    ...(await Promise.all([
-      demographics,
-      countBuckets(),
-      countClipsAndDuration()
-    ]))
-  );
+  const stats = {
+    bundleURLTemplate: `https://${outBucketName}.s3.amazonaws.com/${releaseDir}/{locale}.tar.gz`,
+    locales: merge(
+      ...(await Promise.all([
+        demographics,
+        countBuckets(),
+        countClipsAndDuration()
+      ]))
+    )
+  };
   console.dir(stats, { depth: null, colors: true });
   return outBucket
     .putObject({
       Body: JSON.stringify(stats),
       Bucket: outBucketName,
-      Key: `${releaseDir}/stats.json`
+      Key: `${releaseDir}/stats.json`,
+      ACL: 'public-read'
     })
     .promise();
 };
 
 processAndDownloadClips()
-  .then(
-    demographics =>
-      !config.get('skipBundling') &&
-      Promise.all([collectAndUplodatStats(demographics), archiveAndUpload()])
+  .then(demographics =>
+    Promise.all([collectAndUplodatStats(demographics), archiveAndUpload()])
   )
   .catch(e => console.error(e));
