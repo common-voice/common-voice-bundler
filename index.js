@@ -224,14 +224,15 @@ const sumDurations = async () => {
 
 const archiveAndUpload = () =>
   getLocaleDirs().reduce((promise, locale) => {
-    return promise.then(() => {
+    return promise.then(sizes => {
       console.log('archiving & uploading', locale);
 
       const stream = new PassThrough();
+      const archiveName = `${releaseDir}/${locale}.tar.gz`;
       const managedUpload = outBucket.upload({
         Body: stream,
         Bucket: outBucketName,
-        Key: `${releaseDir}/${locale}.tar.gz`,
+        Key: archiveName,
         ACL: 'public-read'
       });
       logProgress(managedUpload);
@@ -243,22 +244,29 @@ const archiveAndUpload = () =>
 
       return managedUpload
         .promise()
-        .then(() => console.log(''))
+        .then(() =>
+          outBucket
+            .headObject({ Bucket: outBucketName, Key: archiveName })
+            .promise()
+        )
+        .then(({ ContentLength }) => {
+          console.log('');
+          sizes[locale] = { size: ContentLength };
+          return sizes;
+        })
         .catch(err => console.error(err));
     });
-  }, Promise.resolve());
+  }, Promise.resolve({}));
 
-const collectAndUplodatStats = async dbStats => {
-  const stats = {
+const collectAndUplodatStats = async (  stats) => {
+  const statsJSON = {
     bundleURLTemplate: `https://${outBucketName}.s3.amazonaws.com/${releaseDir}/{locale}.tar.gz`,
-    locales: merge(
-      ...(await Promise.all([dbStats, countBuckets(), sumDurations()]))
-    )
+    locales: merge(...stats)
   };
-  console.dir(stats, { depth: null, colors: true });
+  console.dir(statsJSON, { depth: null, colors: true });
   return outBucket
     .putObject({
-      Body: JSON.stringify(stats),
+      Body: JSON.stringify(statsJSON),
       Bucket: outBucketName,
       Key: `${releaseDir}/stats.json`,
       ACL: 'public-read'
@@ -269,8 +277,11 @@ const collectAndUplodatStats = async dbStats => {
 processAndDownloadClips()
   .then(stats =>
     Promise.all([
-      collectAndUplodatStats(stats),
+      stats,
+      countBuckets(),
+      sumDurations(),
       config.get('skipBundling') ? Promise.resolve() : archiveAndUpload()
     ])
   )
+  .then(collectAndUplodatStats)
   .catch(e => console.error(e));
