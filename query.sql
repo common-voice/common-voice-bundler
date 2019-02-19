@@ -1,6 +1,6 @@
 SELECT clips.client_id,
        path,
-       sentence,
+       REPLACE(sentence, '\r\n', ' ') AS sentence,
        COALESCE(SUM(votes.is_valid), 0) AS up_votes,
        COALESCE(SUM(NOT votes.is_valid), 0) AS down_votes,
        COALESCE(age, '') AS age,
