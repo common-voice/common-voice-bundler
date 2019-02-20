@@ -64,7 +64,12 @@ const config = convict({
   skipBundling: {
     format: Boolean,
     default: false
+  },
+  skipHashing: {
+    format: Boolean,
+    default: false
   }
+
 });
 
 config.loadFile('./config.json');

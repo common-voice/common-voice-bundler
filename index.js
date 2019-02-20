@@ -124,6 +124,8 @@ const processAndDownloadClips = () => {
 
         usersSet.add(row.client_id);
 
+        if (config.get('skipHashing')) return;
+
         const newPath = hash(row.path);
         tsvStream.write({
           ...row,
@@ -225,10 +227,9 @@ const sumDurations = async () => {
 const archiveAndUpload = () =>
   getLocaleDirs().reduce((promise, locale) => {
     return promise.then(sizes => {
-      console.log('archiving & uploading', locale);
-
       const stream = new PassThrough();
       const archiveName = `${releaseDir}/${locale}.tar.gz`;
+      console.log('archiving & uploading', archiveName);
       const managedUpload = outBucket.upload({
         Body: stream,
         Bucket: outBucketName,
