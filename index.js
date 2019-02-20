@@ -36,7 +36,7 @@ const outBucket = new S3({
     : {}),
   region: 'us-west-2'
 });
-const releaseDir = 'cv-corpus-' + new Date().toISOString().split('T')[0];
+const releaseDir = config.get('releaseName');
 
 const downloadClipFile = path => {
   const { accessKeyId, secretAccessKey, name, region } = config.get(

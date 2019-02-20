@@ -56,6 +56,10 @@ const config = convict({
       default: ''
     }
   },
+  releaseName: {
+    format: String,
+    default: 'cv-corpus-1'
+  },
   salt: {
     format: String,
     sensitive: true,
@@ -69,7 +73,6 @@ const config = convict({
     format: Boolean,
     default: false
   }
-
 });
 
 config.loadFile('./config.json');
