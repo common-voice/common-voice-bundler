@@ -18,4 +18,5 @@ FROM clips
      LEFT JOIN user_client_locale_buckets buckets
                ON clips.locale_id = buckets.locale_id AND
                   clips.client_id = buckets.client_id
+WHERE clips.locale_id NOT IN (SELECT id FROM locales WHERE name = 'fa')
 GROUP BY clips.id
