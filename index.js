@@ -90,7 +90,9 @@ const processAndDownloadClips = () => {
     };
 
     const tsvStream = csv.createWriteStream(TSV_OPTIONS);
-    tsvStream.pipe(fs.createWriteStream(TSV_PATH));
+    if (!config.get('skipHashing')) {
+      tsvStream.pipe(fs.createWriteStream(TSV_PATH));
+    }
 
     let readAllRows = false;
     const cleanUp = () => {
