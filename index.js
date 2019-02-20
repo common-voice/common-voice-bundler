@@ -261,7 +261,7 @@ const archiveAndUpload = () =>
     });
   }, Promise.resolve({}));
 
-const collectAndUplodatStats = async (  stats) => {
+const collectAndUplodatStats = async stats => {
   const statsJSON = {
     bundleURLTemplate: `https://${outBucketName}.s3.amazonaws.com/${releaseDir}/{locale}.tar.gz`,
     locales: merge(...stats)
@@ -281,9 +281,15 @@ processAndDownloadClips()
   .then(stats =>
     Promise.all([
       stats,
-      countBuckets(),
       sumDurations(),
-      config.get('skipBundling') ? Promise.resolve() : archiveAndUpload()
+      countBuckets().then(async bucketStats =>
+        merge(
+          bucketStats,
+          await (config.get('skipBundling')
+            ? Promise.resolve()
+            : archiveAndUpload())
+        )
+      )
     ])
   )
   .then(collectAndUplodatStats)
