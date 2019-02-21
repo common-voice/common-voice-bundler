@@ -179,12 +179,12 @@ function getLocaleDirs() {
 }
 
 const countBuckets = async () => {
-  const child = await spawn('create-corpora', ['-f', TSV_PATH, '-d', OUT_DIR], {
-    encoding: 'utf8'
-  });
-  if (child.error) {
-    throw child.error;
-  }
+  // const child = await spawn('create-corpora', ['-f', TSV_PATH, '-d', OUT_DIR], {
+  //   encoding: 'utf8'
+  // });
+  // if (child.error) {
+  //   throw child.error;
+  // }
 
   const buckets = {};
   for (const locale of getLocaleDirs()) {
