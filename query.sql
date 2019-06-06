@@ -6,8 +6,7 @@ SELECT clips.client_id,
        COALESCE(age, '') AS age,
        COALESCE(gender, '') AS gender,
        COALESCE(accents.accent, '') AS accent,
-       locales.name AS locale,
-       buckets.bucket
+       locales.name AS locale
 FROM clips
      LEFT JOIN votes ON clips.id = votes.clip_id
      LEFT JOIN user_clients ON clips.client_id = user_clients.client_id
@@ -15,7 +14,4 @@ FROM clips
                ON user_clients.client_id = accents.client_id AND
                   accents.locale_id = clips.locale_id
      LEFT JOIN locales ON clips.locale_id = locales.id
-     LEFT JOIN user_client_locale_buckets buckets
-               ON clips.locale_id = buckets.locale_id AND
-                  clips.client_id = buckets.client_id
 GROUP BY clips.id
