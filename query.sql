@@ -18,5 +18,4 @@ FROM clips
      LEFT JOIN user_client_locale_buckets buckets
                ON clips.locale_id = buckets.locale_id AND
                   clips.client_id = buckets.client_id
-WHERE clips.created_at < CAST('2018-12-19' AS DATE)
 GROUP BY clips.id
