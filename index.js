@@ -131,7 +131,7 @@ const processAndDownloadClips = () => {
         const newPath = hash(row.path);
         tsvStream.write({
           ...row,
-          sentence: row.sentece.split('\t').join(' '),
+          sentence: row.sentence.split('\t').join(' '),
           client_id: hash(row.client_id),
           path: newPath
         });
