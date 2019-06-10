@@ -17,7 +17,11 @@ const {
   objectMap
 } = require('./helpers');
 
-const TSV_OPTIONS = { headers: true, delimiter: '\t', quote: null };
+const TSV_OPTIONS = {
+  headers: true,
+  delimiter: '\t',
+  quoteColumns: { sentence: true }
+};
 const OUT_DIR = 'out';
 const TSV_PATH = path.join(OUT_DIR, 'clips.tsv');
 
@@ -131,7 +135,7 @@ const processAndDownloadClips = () => {
         const newPath = hash(row.path);
         tsvStream.write({
           ...row,
-          sentence: row.sentence.split('\t').join(' '),
+          sentence: row.sentence,
           client_id: hash(row.client_id),
           path: newPath
         });
