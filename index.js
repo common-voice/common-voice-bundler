@@ -20,7 +20,7 @@ const {
 const TSV_OPTIONS = {
   headers: true,
   delimiter: '\t',
-  quoteColumns: { sentence: true }
+  quote: false
 };
 const OUT_DIR = 'out';
 const TSV_PATH = path.join(OUT_DIR, 'clips.tsv');
