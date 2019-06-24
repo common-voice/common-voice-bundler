@@ -137,7 +137,7 @@ const processAndDownloadClips = () => {
           ...row,
           sentence: row.sentence.split('\r').join(' '),
           client_id: crypto
-            .createHash('sha256')
+            .createHash('sha512')
             .update(row.client_id)
             .digest('hex'),
           path: newPath
