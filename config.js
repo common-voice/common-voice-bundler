@@ -60,11 +60,6 @@ const config = convict({
     format: String,
     default: 'cv-corpus-1'
   },
-  salt: {
-    format: String,
-    sensitive: true,
-    default: ''
-  },
   skipBundling: {
     format: Boolean,
     default: false

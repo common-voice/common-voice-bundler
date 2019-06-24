@@ -1,4 +1,3 @@
-const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
@@ -28,12 +27,6 @@ function countFileLines(filePath) {
       })
       .on('error', reject);
   });
-}
-
-function hash(row) {
-  return crypto
-    .pbkdf2Sync(row, config.get('salt'), 1000, 64, 'sha512')
-    .toString('hex');
 }
 
 function logProgress(managedUpload) {

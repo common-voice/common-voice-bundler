@@ -1,4 +1,5 @@
-SELECT clips.client_id,
+SELECT clips.id,
+       clips.client_id,
        path,
        REPLACE(sentence, '\r\n', ' ') AS sentence,
        COALESCE(SUM(votes.is_valid), 0) AS up_votes,

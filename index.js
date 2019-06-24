@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
@@ -11,7 +12,6 @@ const tar = require('tar');
 const config = require('./config');
 const {
   countFileLines,
-  hash,
   logProgress,
   mkDirByPathSync,
   objectMap
@@ -132,16 +132,19 @@ const processAndDownloadClips = () => {
 
         if (config.get('skipHashing')) return;
 
-        const newPath = hash(row.path);
+        const newPath = `common_voice_${row.locale}_${row.id}.mp3`;
         tsvStream.write({
           ...row,
           sentence: row.sentence,
-          client_id: hash(row.client_id),
+          client_id: crypto
+            .createHash('sha256')
+            .update(row.client_id)
+            .digest('hex'),
           path: newPath
         });
 
         const clipsDir = path.join(OUT_DIR, row.locale, 'clips');
-        const soundFilePath = path.join(clipsDir, newPath + '.mp3');
+        const soundFilePath = path.join(clipsDir, newPath);
 
         if (fs.existsSync(soundFilePath)) {
           return;
