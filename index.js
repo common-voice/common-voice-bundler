@@ -135,7 +135,7 @@ const processAndDownloadClips = () => {
         const newPath = `common_voice_${row.locale}_${row.id}.mp3`;
         tsvStream.write({
           ...row,
-          sentence: row.sentence,
+          sentence: row.sentence.split('\r').join(' '),
           client_id: crypto
             .createHash('sha256')
             .update(row.client_id)

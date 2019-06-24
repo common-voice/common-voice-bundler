@@ -15,5 +15,4 @@ FROM clips
                ON user_clients.client_id = accents.client_id AND
                   accents.locale_id = clips.locale_id
      LEFT JOIN locales ON clips.locale_id = locales.id
-WHERE locales.name NOT IN ('fa')
 GROUP BY clips.id
