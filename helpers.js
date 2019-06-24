@@ -1,7 +1,6 @@
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
-const config = require('./config');
 
 function bytesToSize(bytes) {
   var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
@@ -75,7 +74,6 @@ function objectMap(object, mapFn) {
 
 module.exports = {
   countFileLines,
-  hash,
   logProgress,
   mkDirByPathSync,
   objectMap
