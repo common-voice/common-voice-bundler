@@ -26,7 +26,7 @@ const TSV_OPTIONS = {
   quote: false
 };
 
-const OUT_DIR = 'out';
+const OUT_DIR = config.get('localOutDir');
 const TSV_PATH = path.join(OUT_DIR, 'clips.tsv');
 
 const { accessKeyId, secretAccessKey, name: outBucketName } = config.get(
@@ -112,7 +112,7 @@ const processAndDownloadClips = () => {
     };
 
     const stats = {};
-    db.query(fs.readFileSync(path.join(__dirname, 'query.sql'), 'utf-8'))
+    db.query(fs.readFileSync(path.join(__dirname, 'queries', config.get('queryFile')), 'utf-8'))
       .on('result', row => {
         rowIndex++;
         renderProgress();
