@@ -117,5 +117,5 @@ module.exports = {
   objectMap,
   promptAsync,
   promptLoop,
-  msToHours
+  unitToHours
 };
