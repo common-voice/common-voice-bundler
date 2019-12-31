@@ -91,8 +91,23 @@ async function promptLoop(prompt, options) {
   else await readlineLoop(promptLoop, options);
 };
 
-function msToHours(ms) {
-  return Math.floor(ms / 1000 / 60 / 60);
+function unitToHours(duration, unit, sigDig) {
+  perHr = 1;
+  sigDigMultiplier = Math.pow(10, sigDig);
+
+  switch(unit) {
+    case 'ms':
+      perHr = 60 * 60 * 1000;
+      break;
+    case 's':
+      perHr = 60 * 60;
+      break;
+    case 'min':
+      perHr = 60;
+      break;
+  }
+
+  return Math.floor((duration / perHr) * sigDigMultiplier) / sigDigMultiplier;
 }
 
 module.exports = {

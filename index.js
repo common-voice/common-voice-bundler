@@ -17,7 +17,7 @@ const {
   objectMap,
   promptAsync,
   promptLoop,
-  msToHours
+  unitToHours
 } = require('./helpers');
 
 const TSV_OPTIONS = {
@@ -190,7 +190,7 @@ function getLocaleDirs() {
     .filter(f => fs.statSync(path.join(OUT_DIR, f)).isDirectory());
 }
 
-const countBuckets = async () => {
+const _countBuckets = async () => {
   const query = `In a separate shell, run the following command:
     create-corpora -f ${TSV_PATH} -d ${OUT_DIR} -v\n
 When that has completed, return to this shell and type 'corpora-complete' and hit enter > `
@@ -239,7 +239,7 @@ const sumDurations = async () => {
   return durations;
 };
 
-const archiveAndUpload = () =>
+const _archiveAndUpload = () =>
   getLocaleDirs().reduce((promise, locale) => {
     return promise.then(sizes => {
       const stream = new PassThrough();
@@ -276,16 +276,29 @@ const archiveAndUpload = () =>
 
 const calculateAggregateStats = stats => {
   let totalDuration = 0;
+  let totalValidDurationSecs = 0;
 
   for (const locale in stats.locales) {
     const lang = stats.locales[locale];
-    lang.avgDuration = Math.round((lang.duration / lang.clips)) / 1000;
-    lang.validHrs = msToHours(lang.buckets.validated * lang.avgDuration);
+    const validClips = lang.buckets ? lang.buckets.validated : 0;
+
+    lang.avgDurationSecs = Math.round((lang.duration / lang.clips)) / 1000;
+    lang.validDurationSecs = Math.round((lang.duration / lang.clips) * validClips) / 1000;
+
+    lang.totalHrs = unitToHours(lang.duration, 'ms', 2);
+    lang.validHrs = unitToHours(lang.validDurationSecs, 's', 2);
+
     stats.locales[locale] = lang;
+
     totalDuration += lang.duration;
+    totalValidDurationSecs += lang.validDurationSecs;
   }
 
-  stats.totalDuration = totalDuration;
+  stats.totalDuration = Math.floor(totalDuration);
+  stats.totalValidDurationSecs = Math.floor(totalValidDurationSecs);
+  stats.totalHrs = unitToHours(stats.totalDuration, 'ms', 0);
+  stats.totalValidHrs = unitToHours(stats.totalValidDurationSecs, 's', 0);
+
   return stats;
 }
 
@@ -306,6 +319,14 @@ const collectAndUploadStats = async stats => {
     .promise();
 };
 
+const archiveAndUpload = async () => {
+  return config.get('skipBundling') ? Promise.resolve() : _archiveAndUpload();
+}
+
+const countBuckets = async () => {
+  return config.get('skipCorpora') ? Promise.resolve() : _countBuckets();
+}
+
 processAndDownloadClips()
   .then(stats =>
     Promise.all([
@@ -314,9 +335,7 @@ processAndDownloadClips()
       countBuckets().then(async bucketStats =>
         merge(
           bucketStats,
-          await (config.get('skipBundling')
-            ? Promise.resolve()
-            : archiveAndUpload())
+          await archiveAndUpload()
         )
       )
     ])
