@@ -64,9 +64,21 @@ const config = convict({
     format: Boolean,
     default: false
   },
+  skipCorpora: {
+    format: Boolean,
+    default: false
+  },
   skipHashing: {
     format: Boolean,
     default: false
+  },
+  localOutDir: {
+    format: String,
+    default: 'out'
+  },
+  queryFile: {
+    format: String,
+    default: 'bundleAll.sql'
   }
 });
 

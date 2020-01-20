@@ -14,7 +14,10 @@ const {
   countFileLines,
   logProgress,
   mkDirByPathSync,
-  objectMap
+  objectMap,
+  promptAsync,
+  promptLoop,
+  unitToHours
 } = require('./helpers');
 
 const TSV_OPTIONS = {
@@ -22,7 +25,8 @@ const TSV_OPTIONS = {
   delimiter: '\t',
   quote: false
 };
-const OUT_DIR = 'out';
+
+const OUT_DIR = config.get('localOutDir');
 const TSV_PATH = path.join(OUT_DIR, 'clips.tsv');
 
 const { accessKeyId, secretAccessKey, name: outBucketName } = config.get(
@@ -108,7 +112,7 @@ const processAndDownloadClips = () => {
     };
 
     const stats = {};
-    db.query(fs.readFileSync(path.join(__dirname, 'query.sql'), 'utf-8'))
+    db.query(fs.readFileSync(path.join(__dirname, 'queries', config.get('queryFile')), 'utf-8'))
       .on('result', row => {
         rowIndex++;
         renderProgress();
@@ -186,13 +190,14 @@ function getLocaleDirs() {
     .filter(f => fs.statSync(path.join(OUT_DIR, f)).isDirectory());
 }
 
-const countBuckets = async () => {
-  const child = await spawn('create-corpora', ['-f', TSV_PATH, '-d', OUT_DIR], {
-    encoding: 'utf8'
+const _countBuckets = async () => {
+  const query = `In a separate shell, run the following command:
+    create-corpora -f ${TSV_PATH} -d ${OUT_DIR} -v\n
+When that has completed, return to this shell and type 'corpora-complete' and hit enter > `
+
+  await promptLoop(query, {
+    'corpora-complete': () => { return; }
   });
-  if (child.error) {
-    throw child.error;
-  }
 
   const buckets = {};
   for (const locale of getLocaleDirs()) {
@@ -219,22 +224,22 @@ const countBuckets = async () => {
 const sumDurations = async () => {
   const durations = {};
   for (const locale of getLocaleDirs()) {
-    durations[locale] = {
-      duration: Number(
-        (await spawn(
-          'mp3-duration-sum',
-          [path.join(OUT_DIR, locale, 'clips')],
-          {
-            encoding: 'utf8'
-          }
-        )).stdout
-      )
-    };
+    const duration = Number((await spawn(
+      'mp3-duration-sum',
+      [path.join(OUT_DIR, locale, 'clips')],
+      {
+        encoding: 'utf8',
+        shell: true,
+        maxBuffer: 1024 * 1024 * 10,
+      }
+    )).stdout);
+
+    durations[locale] = { duration };
   }
   return durations;
 };
 
-const archiveAndUpload = () =>
+const _archiveAndUpload = () =>
   getLocaleDirs().reduce((promise, locale) => {
     return promise.then(sizes => {
       const stream = new PassThrough();
@@ -269,11 +274,40 @@ const archiveAndUpload = () =>
     });
   }, Promise.resolve({}));
 
-const collectAndUplodatStats = async stats => {
-  const statsJSON = {
+const calculateAggregateStats = stats => {
+  let totalDuration = 0;
+  let totalValidDurationSecs = 0;
+
+  for (const locale in stats.locales) {
+    const lang = stats.locales[locale];
+    const validClips = lang.buckets ? lang.buckets.validated : 0;
+
+    lang.avgDurationSecs = Math.round((lang.duration / lang.clips)) / 1000;
+    lang.validDurationSecs = Math.round((lang.duration / lang.clips) * validClips) / 1000;
+
+    lang.totalHrs = unitToHours(lang.duration, 'ms', 2);
+    lang.validHrs = unitToHours(lang.validDurationSecs, 's', 2);
+
+    stats.locales[locale] = lang;
+
+    totalDuration += lang.duration;
+    totalValidDurationSecs += lang.validDurationSecs;
+  }
+
+  stats.totalDuration = Math.floor(totalDuration);
+  stats.totalValidDurationSecs = Math.floor(totalValidDurationSecs);
+  stats.totalHrs = unitToHours(stats.totalDuration, 'ms', 0);
+  stats.totalValidHrs = unitToHours(stats.totalValidDurationSecs, 's', 0);
+
+  return stats;
+}
+
+const collectAndUploadStats = async stats => {
+  const statsJSON = calculateAggregateStats({
     bundleURLTemplate: `https://${outBucketName}.s3.amazonaws.com/${releaseDir}/{locale}.tar.gz`,
     locales: merge(...stats)
-  };
+  });
+
   console.dir(statsJSON, { depth: null, colors: true });
   return outBucket
     .putObject({
@@ -285,6 +319,14 @@ const collectAndUplodatStats = async stats => {
     .promise();
 };
 
+const archiveAndUpload = async () => {
+  return config.get('skipBundling') ? Promise.resolve() : _archiveAndUpload();
+}
+
+const countBuckets = async () => {
+  return config.get('skipCorpora') ? Promise.resolve() : _countBuckets();
+}
+
 processAndDownloadClips()
   .then(stats =>
     Promise.all([
@@ -293,12 +335,11 @@ processAndDownloadClips()
       countBuckets().then(async bucketStats =>
         merge(
           bucketStats,
-          await (config.get('skipBundling')
-            ? Promise.resolve()
-            : archiveAndUpload())
+          await archiveAndUpload()
         )
       )
     ])
   )
-  .then(collectAndUplodatStats)
-  .catch(e => console.error(e));
+  .then(collectAndUploadStats)
+  .catch(e => console.error(e))
+  .finally(() => process.exit(0));

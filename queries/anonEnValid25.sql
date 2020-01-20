@@ -15,4 +15,8 @@ FROM clips
                ON user_clients.client_id = accents.client_id AND
                   accents.locale_id = clips.locale_id
      LEFT JOIN locales ON clips.locale_id = locales.id
+WHERE clips.locale_id = 1
+      AND user_clients.email IS NULL
+      AND clips.is_valid IS TRUE
 GROUP BY clips.id
+LIMIT 22500

@@ -2,6 +2,11 @@ const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
 
+const prompt = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout,
+});
+
 function bytesToSize(bytes) {
   var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
   if (bytes == 0) return '0 Byte';
@@ -72,9 +77,45 @@ function objectMap(object, mapFn) {
   }, {});
 }
 
+function promptAsync(question) {
+  return new Promise(resolve => {
+    prompt.question(question, resolve);
+  });
+}
+
+async function promptLoop(prompt, options) {
+  const answer = await promptAsync(prompt);
+  const callback = options[answer.toLowerCase()];
+
+  if (callback) await callback();
+  else await readlineLoop(promptLoop, options);
+};
+
+function unitToHours(duration, unit, sigDig) {
+  perHr = 1;
+  sigDigMultiplier = Math.pow(10, sigDig);
+
+  switch(unit) {
+    case 'ms':
+      perHr = 60 * 60 * 1000;
+      break;
+    case 's':
+      perHr = 60 * 60;
+      break;
+    case 'min':
+      perHr = 60;
+      break;
+  }
+
+  return Math.floor((duration / perHr) * sigDigMultiplier) / sigDigMultiplier;
+}
+
 module.exports = {
   countFileLines,
   logProgress,
   mkDirByPathSync,
-  objectMap
+  objectMap,
+  promptAsync,
+  promptLoop,
+  unitToHours
 };
