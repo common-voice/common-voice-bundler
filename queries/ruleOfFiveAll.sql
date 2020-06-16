@@ -14,5 +14,5 @@ FROM clips
                   accents.locale_id = clips.locale_id
      LEFT JOIN locales ON clips.locale_id = locales.id
 WHERE clips.locale_id in (2570,65,2578)
-AND CREATED AT < "2020-03-12 00:00:00"
+AND clips.created_at < "2020-03-12 00:00:00"
 GROUP BY clips.id
