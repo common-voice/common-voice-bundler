@@ -76,6 +76,10 @@ const config = convict({
     format: Boolean,
     default: false
   },
+  skipDownload: {
+    format: Boolean,
+    default: false
+  },
   localOutDir: {
     format: String,
     default: 'out'

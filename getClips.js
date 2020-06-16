@@ -21,9 +21,7 @@ const OUT_DIR = config.get('localOutDir');
 const TSV_PATH = path.join(OUT_DIR, 'clips.tsv');
 const { name: CLIP_BUCKET_NAME } = config.get('clipBucket');
 
-const processAndDownloadClips = (db, clipBucket) => {
-  db.connect();
-
+const processAndDownloadClips = (db, clipBucket, minorityLangs) => {
   return new Promise(resolve => {
     let activeDownloads = 0;
     let rowIndex = 0;
@@ -38,9 +36,8 @@ const processAndDownloadClips = (db, clipBucket) => {
     }
 
     const renderProgress = () => {
-      readline.cursorTo(process.stdout, 0);
       process.stdout.write(
-        rowIndex + ' rows processed, ' + clipSavedIndex + ' clips downloaded'
+        rowIndex + ' rows processed, ' + clipSavedIndex + ' clips downloaded\r'
       );
     };
 
@@ -59,7 +56,7 @@ const processAndDownloadClips = (db, clipBucket) => {
       const { splits } = localeStats;
 
       for (const key of Object.keys(splits).filter(key => key != 'filter')) {
-        const value = row[key];
+        const value = row[key] ? row[key] : '';
         splits[key][value] = (splits[key][value] || 0) + 1;
       }
     };
@@ -67,9 +64,10 @@ const processAndDownloadClips = (db, clipBucket) => {
     const formatFinalStats = (localeSplits) => {
       return objectMap(localeSplits, ({ clips, splits, usersSet }) => ({
         clips,
-        splits: objectMap(splits, values =>
-          objectMap(values, value => Number((value / clips).toFixed(2)))
-        ),
+        splits: objectMap(splits, (values, key) => {
+          const label = key ? key : '';
+          return { [label]: objectMap(values, value => Number((value / clips).toFixed(2))) }
+        }),
         users: usersSet.size
       }));
     };
@@ -83,7 +81,6 @@ const processAndDownloadClips = (db, clipBucket) => {
 
     const cleanUp = () => {
       if (readAllRows && activeDownloads == 0) {
-        db.end();
         console.log('');
         resolve(formatFinalStats(stats));
       }
@@ -93,6 +90,12 @@ const processAndDownloadClips = (db, clipBucket) => {
       .on('result', row => {
         rowIndex++;
         renderProgress();
+
+        if (minorityLangs.includes(row.locale)) {
+          row.gender = '';
+          row.age = '';
+        }
+
         updateStats(stats, row);
 
         const clipsDir = path.join(OUT_DIR, row.locale, 'clips');
@@ -106,7 +109,7 @@ const processAndDownloadClips = (db, clipBucket) => {
           path: newPath
         });
 
-        if (fs.existsSync(soundFilePath)) {
+        if (fs.existsSync(soundFilePath) || config.get('skipDownload')) {
           return;
         }
 

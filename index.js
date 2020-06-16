@@ -63,7 +63,7 @@ const calculateAggregateStats = stats => {
 
   for (const locale in stats.locales) {
     const localeStats = stats.locales[locale];
-    const validClips = localeStats.buckets.validated;
+    const validClips = localeStats.buckets ? localeStats.buckets.validated : 0;
 
     localeStats.avgDurationSecs = Math.round((localeStats.duration / localeStats.clips)) / 1000;
     localeStats.validDurationSecs = Math.round((localeStats.duration / localeStats.clips) * validClips) / 1000;
@@ -110,8 +110,28 @@ const countBuckets = async () => {
   return config.get('skipCorpora') ? Promise.resolve() : runCorpora();
 }
 
+const checkRuleOfFive = async () => {
+  const minorityLangs = [];
+  const queryFile = path.join(__dirname, 'queries', 'uniqueSpeakers.sql');
+
+  return new Promise(resolve => {
+    db.query(fs.readFileSync(queryFile, 'utf-8'))
+    .on('result', row => {
+      if (row.count < 5 && row.name) minorityLangs.push(row.name);
+    })
+    .on('end', () => {
+      console.log(`Languages with fewer than 5 unique speakers: ${minorityLangs.join(", ")}`);
+      resolve(minorityLangs);
+    });
+  });
+}
+
 const run = () => {
-  processAndDownloadClips(db, clipBucket)
+  db.connect();
+
+  checkRuleOfFive()
+    .then(minorityLangs =>
+      processAndDownloadClips(db, clipBucket, minorityLangs))
     .then(stats => {
       localeDirs = getLocaleDirs(OUT_DIR);
 
@@ -128,7 +148,10 @@ const run = () => {
     })
     .then(collectAndUploadStats)
     .catch(e => console.error(e))
-    .finally(() => process.exit(0));
+    .finally(() => {
+      db.end();
+      process.exit(0)
+    });
 }
 
 run();
