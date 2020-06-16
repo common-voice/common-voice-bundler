@@ -54,6 +54,10 @@ const config = convict({
       format: String,
       sensitive: true,
       default: ''
+    },
+    region: {
+      format: String,
+      default: 'us-west-2'
     }
   },
   releaseName: {
@@ -79,6 +83,10 @@ const config = convict({
   queryFile: {
     format: String,
     default: 'bundleAll.sql'
+  },
+  customSet: {
+    format: String,
+    default: ''
   }
 });
 
