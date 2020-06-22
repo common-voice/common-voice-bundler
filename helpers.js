@@ -124,12 +124,12 @@ function hashId(id) {
     .digest('hex');
 }
 
-const sumDurations = async (localeDirs, outDir) => {
+const sumDurations = async (localeDirs, releaseName) => {
   const durations = {};
   for (const locale of localeDirs) {
     const duration = Number((await spawn(
       'mp3-duration-sum',
-      [path.join(outDir, locale, 'clips')],
+      [path.join(releaseName, locale, 'clips')],
       {
         encoding: 'utf8',
         shell: true,

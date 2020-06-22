@@ -80,17 +80,13 @@ const config = convict({
     format: Boolean,
     default: false
   },
-  localOutDir: {
-    format: String,
-    default: 'out'
+  skipMinorityCheck: {
+    format: Boolean,
+    default: false
   },
   queryFile: {
     format: String,
     default: 'bundleAll.sql'
-  },
-  customSet: {
-    format: String,
-    default: ''
   }
 });
 

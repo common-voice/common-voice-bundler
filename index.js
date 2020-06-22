@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const merge = require('lodash.merge');
 const config = require('./config');
+const getReportedSentences = require('./getReportedSentences');
 
 const {
   countFileLines,
@@ -12,9 +13,8 @@ const {
   sumDurations
 } = require('./helpers');
 
-const OUT_DIR = config.get('localOutDir');
 const RELEASE_NAME = config.get('releaseName');
-const TSV_PATH = path.join(OUT_DIR, 'clips.tsv');
+const TSV_PATH = path.join(RELEASE_NAME, 'clips.tsv');
 const { name: OUT_BUCKET_NAME } = config.get('outBucket');
 
 let localeDirs = [];
@@ -25,7 +25,7 @@ const { uploadDataset } = require('./managedUpload');
 
 const runCorpora = async () => {
   const query = `In a separate shell in the same directory, run the following command:
-    create-corpora -f ${TSV_PATH} -d ${OUT_DIR} -v\n
+    create-corpora -f ${TSV_PATH} -d ${RELEASE_NAME} -v\n
 When that has completed, return to this shell and type 'corpora-complete' and hit enter > `
 
   await promptLoop(query, {
@@ -35,7 +35,7 @@ When that has completed, return to this shell and type 'corpora-complete' and hi
   const buckets = {};
 
   for (const locale of localeDirs) {
-    const localePath = path.join(OUT_DIR, locale);
+    const localePath = path.join(RELEASE_NAME, locale);
     const localeBuckets = (await fs.readdirSync(localePath))
       .filter(file => file.endsWith('.tsv'))
       .map(async fileName => [
@@ -91,7 +91,8 @@ const collectAndUploadStats = async stats => {
     locales: merge(...stats)
   });
 
-  console.dir(statsJSON, { depth: null, colors: true });
+  saveStatsToDisk(statsJSON);
+
   return bundlerBucket
     .putObject({
       Body: JSON.stringify(statsJSON),
@@ -102,6 +103,12 @@ const collectAndUploadStats = async stats => {
     .promise();
 };
 
+const saveStatsToDisk = stats => {
+  fs.writeFile(`${RELEASE_NAME}/stats.json`, JSON.stringify(stats), 'utf8', (err) => {
+    if (err) throw err;
+  });
+}
+
 const archiveAndUpload = async () => {
   return config.get('skipBundling') ? Promise.resolve() : uploadDataset(localeDirs, bundlerBucket, RELEASE_NAME);
 }
@@ -110,9 +117,15 @@ const countBuckets = async () => {
   return config.get('skipCorpora') ? Promise.resolve() : runCorpora();
 }
 
+const downloadReportedSentences = async(db, localeDirs, releaseName) => {
+  return config.get('skipReportedSentences') ? Promise.resolve() : getReportedSentences(db, localeDirs, releaseName)
+}
+
 const checkRuleOfFive = async () => {
   const minorityLangs = [];
   const queryFile = path.join(__dirname, 'queries', 'uniqueSpeakers.sql');
+
+  if (config.get('skipMinorityCheck')) return minorityLangs;
 
   return new Promise(resolve => {
     db.query(fs.readFileSync(queryFile, 'utf-8'))
@@ -133,15 +146,17 @@ const run = () => {
     .then(minorityLangs =>
       processAndDownloadClips(db, clipBucket, minorityLangs))
     .then(stats => {
-      localeDirs = getLocaleDirs(OUT_DIR);
+      saveStatsToDisk(stats);
+      localeDirs = getLocaleDirs(RELEASE_NAME);
 
       return Promise.all([
         stats,
-        sumDurations(localeDirs, OUT_DIR),
+        sumDurations(localeDirs, RELEASE_NAME),
+        downloadReportedSentences(db, localeDirs, RELEASE_NAME),
         countBuckets().then(async bucketStats =>
           merge(
             bucketStats,
-            await archiveAndUpload()
+            await archiveAndUpload(localeDirs, bundlerBucket, RELEASE_NAME)
           )
         )
       ]);

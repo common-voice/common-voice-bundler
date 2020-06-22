@@ -5,7 +5,7 @@ const tar = require('tar');
 const { PassThrough } = require('stream');
 const { logProgress } = require('./helpers');
 
-const OUT_DIR = config.get('localOutDir');
+const RELEASE_NAME = config.get('releaseName');
 const { name: OUT_BUCKET_NAME } = config.get('outBucket');
 
 const uploadDataset = (localeDirs, bundlerBucket, releaseName) => {
@@ -22,7 +22,7 @@ const uploadDataset = (localeDirs, bundlerBucket, releaseName) => {
       });
       logProgress(managedUpload);
 
-      const localeDir = path.join(OUT_DIR, locale);
+      const localeDir = path.join(RELEASE_NAME, locale);
       tar
         .c({ gzip: true, cwd: localeDir }, fs.readdirSync(localeDir))
         .pipe(stream);

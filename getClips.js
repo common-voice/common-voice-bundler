@@ -7,7 +7,8 @@ const config = require('./config');
 const {
   hashId,
   objectMap,
-  mkDirByPathSync
+  mkDirByPathSync,
+  append
 } = require('./helpers');
 
 const TSV_OPTIONS = {
@@ -17,8 +18,8 @@ const TSV_OPTIONS = {
 };
 
 const QUERY_FILE = path.join(__dirname, 'queries', config.get('queryFile'));
-const OUT_DIR = config.get('localOutDir');
-const TSV_PATH = path.join(OUT_DIR, 'clips.tsv');
+const RELEASE_NAME = config.get('releaseName');
+const TSV_PATH = path.join(RELEASE_NAME, 'clips.tsv');
 const { name: CLIP_BUCKET_NAME } = config.get('clipBucket');
 
 const processAndDownloadClips = (db, clipBucket, minorityLangs) => {
@@ -27,7 +28,7 @@ const processAndDownloadClips = (db, clipBucket, minorityLangs) => {
     let rowIndex = 0;
     let clipSavedIndex = 0;
     let readAllRows = false;
-    const stats = {};
+    const stats = { errors: [] };
 
     const tsvStream = csv.createWriteStream(TSV_OPTIONS);
 
@@ -86,52 +87,63 @@ const processAndDownloadClips = (db, clipBucket, minorityLangs) => {
       }
     };
 
+    const getMetadata = (path) => {
+      return clipBucket.headObject({ Key: path, Bucket: CLIP_BUCKET_NAME });
+    };
+
     db.query(fs.readFileSync(QUERY_FILE, 'utf-8'))
       .on('result', row => {
         rowIndex++;
         renderProgress();
 
-        if (minorityLangs.includes(row.locale)) {
-          row.gender = '';
-          row.age = '';
-        }
-
-        updateStats(stats, row);
-
-        const clipsDir = path.join(OUT_DIR, row.locale, 'clips');
-        const newPath = `common_voice_${row.locale}_${row.id}.mp3`;
-        const soundFilePath = path.join(clipsDir, newPath);
-
-        tsvStream.write({
-          ...row,
-          sentence: row.sentence.split('\r').join(' '),
-          client_id: config.get('skipHashing') ? row.client_id : hashId(row.client_id),
-          path: newPath
-        });
-
-        if (fs.existsSync(soundFilePath) || config.get('skipDownload')) {
-          return;
-        }
-
-        if (activeDownloads > 50) {
-          db.pause();
-        }
-
-        activeDownloads++;
-
-        mkDirByPathSync(clipsDir);
-        downloadClipFile(row.path)
-          .createReadStream()
-          .pipe(fs.createWriteStream(soundFilePath))
-          .on('finish', () => {
-            activeDownloads--;
-            if (activeDownloads < 25) {
-              db.resume();
+        getMetadata(row.path).then(metadata => {
+          if (metadata.ContentLength <= 128) {
+            stats.errors.push({ path: row.path, size: metadata.ContentLength });
+            return;
+          } else {
+            if (minorityLangs.includes(row.locale)) {
+              row.gender = '';
+              row.age = '';
             }
 
-            clipSavedIndex++;
-            renderProgress();
-            cleanUp();
+            updateStats(stats, row);
+
+            const clipsDir = path.join(RELEASE_NAME, row.locale, 'clips');
+            const newPath = `common_voice_${row.locale}_${row.id}.mp3`;
+            const soundFilePath = path.join(clipsDir, newPath);
+
+            tsvStream.write({
+              ...row,
+              sentence: row.sentence.split('\r').join(' '),
+              client_id: config.get('skipHashing') ? row.client_id : hashId(row.client_id),
+              path: newPath
+            });
+
+            if (fs.existsSync(soundFilePath) || config.get('skipDownload')) {
+              return;
+            }
+
+            if (activeDownloads > 50) {
+              db.pause();
+            }
+
+            activeDownloads++;
+
+            mkDirByPathSync(clipsDir);
+            downloadClipFile(row.path)
+              .createReadStream()
+              .pipe(fs.createWriteStream(soundFilePath))
+              .on('finish', () => {
+                activeDownloads--;
+                if (activeDownloads < 25) {
+                  db.resume();
+                }
+
+                clipSavedIndex++;
+                renderProgress();
+                cleanUp();
+              });
+            }
           });
       })
       .on('end', () => {

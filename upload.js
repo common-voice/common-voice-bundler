@@ -27,7 +27,6 @@ const outBucket = new S3({
 });
 
 const releaseDir = config.get('releaseName');
-const OUT_DIR = config.get('localOutDir');
 
 const tarAndUpload = (locale) => {
   return new Promise(resolve => {
@@ -42,8 +41,8 @@ const tarAndUpload = (locale) => {
     });
 
     logProgress(managedUpload);
-    
-    const localeDir = path.join(OUT_DIR, locale);
+
+    const localeDir = path.join(releaseDir, locale);
     tar
       .c({ gzip: true, cwd: localeDir }, fs.readdirSync(localeDir))
       .pipe(stream);

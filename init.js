@@ -62,11 +62,11 @@ function initS3Bucket(bucketOpts) {
 }
 
 function initialize() {
-  const OUT_DIR = config.get('localOutDir');
+  const RELEASE_NAME = config.get('releaseName');
   const QUERY_FILE = path.join(__dirname, 'queries', config.get('queryFile'));
 
   try {
-    verifyFiles(QUERY_FILE, OUT_DIR);
+    verifyFiles(QUERY_FILE, RELEASE_NAME);
 
     return {
       db: connectToDb(),

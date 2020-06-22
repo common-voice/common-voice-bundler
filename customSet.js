@@ -12,8 +12,6 @@ const {
   getLocaleDirs
 } = require('./helpers');
 
-const OUT_DIR = config.get('customSet');
-
 const outBucketName = config.get('outBucket');
 
 const { db, clipBucket, bundlerBucket } = require('./init').initialize();
@@ -35,7 +33,7 @@ const zipAndUpload = async () => {
     });
     logProgress(managedUpload);
 
-    const cwd = path.join(OUT_DIR);
+    const cwd = path.join(releaseDir);
     tar
       .c({ gzip: true, cwd }, fs.readdirSync(cwd))
       .pipe(stream);
