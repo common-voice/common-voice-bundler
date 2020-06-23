@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const merge = require('lodash.merge');
 const config = require('./config');
-const getReportedSentences = require('./getReportedSentences');
+const { getReportedSentences } = require('./getReportedSentences');
 
 const {
   countFileLines,
@@ -118,7 +118,7 @@ const countBuckets = async () => {
 }
 
 const downloadReportedSentences = async(db, localeDirs, releaseName) => {
-  return config.get('skipReportedSentences') ? Promise.resolve() : getReportedSentences(db, localeDirs, releaseName)
+  return config.get('skipReportedSentences') ? Promise.resolve() : getReportedSentences(db, localeDirs, releaseName);
 }
 
 const checkRuleOfFive = async () => {

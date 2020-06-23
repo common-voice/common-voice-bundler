@@ -29,7 +29,7 @@ const processAndDownloadClips = (db, clipBucket, minorityLangs) => {
     let clipSavedIndex = 0;
     let readAllRows = false;
     const stats = {};
-    const errors = [];
+    const errors = {};
 
     const tsvStream = csv.createWriteStream(TSV_OPTIONS);
 
@@ -64,7 +64,7 @@ const processAndDownloadClips = (db, clipBucket, minorityLangs) => {
     };
 
     const formatFinalStats = (localeSplits) => {
-      const processedStats = objectMap(localeSplits, ({ clips, splits, usersSet }) => ({
+      return processedStats = objectMap(localeSplits, ({ clips, splits, usersSet }) => ({
         clips,
         splits: objectMap(splits, (values, key) => {
           const label = key ? key : '';
@@ -72,8 +72,6 @@ const processAndDownloadClips = (db, clipBucket, minorityLangs) => {
         }),
         users: usersSet.size
       }));
-
-      return {...processedStats, errors}
     };
 
     const downloadClipFile = (path) => {
@@ -87,6 +85,11 @@ const processAndDownloadClips = (db, clipBucket, minorityLangs) => {
       if (readAllRows && activeBucketConnections == 0) {
         console.log('');
         tsvStream.end();
+
+        fs.appendFile(path.join(__dirname, RELEASE_NAME, 'errors.json'), errors, 'utf8', function (err) {
+          if (err) throw err;
+        });
+
         resolve(formatFinalStats(stats));
       }
     };
@@ -104,15 +107,18 @@ const processAndDownloadClips = (db, clipBucket, minorityLangs) => {
         renderProgress();
 
         activeBucketConnections++;
+
         getMetadata(row.path).then(metadata => {
           activeBucketConnections--;
-          cleanUp();
+
           if (activeBucketConnections < 25) {
             db.resume();
           }
 
           if (metadata.ContentLength <= 128) {
-            errors.push({ path: row.path, size: metadata.ContentLength });
+            if (errors[row.locale] === undefined) errors[row.locale] = [];
+            errors[row.locale].push({ path: row.path, size: metadata.ContentLength });
+            cleanUp();
             return;
           } else {
             if (minorityLangs.includes(row.locale)) {
@@ -154,11 +160,8 @@ const processAndDownloadClips = (db, clipBucket, minorityLangs) => {
                 cleanUp();
               });
             }
-
-          cleanUp();
+            cleanUp();
           });
-
-
       })
       .on('end', () => {
         readAllRows = true;

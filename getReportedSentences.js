@@ -12,27 +12,28 @@ const TSV_OPTIONS = {
 
 const getReportedSentences = (db, localeDirs, releaseName) => {
   return new Promise(resolve => {
-    const tsvStream = csv.createWriteStream(TSV_OPTIONS);
     const reportedSentences = {};
 
     db.query(fs.readFileSync(QUERY_FILE, 'utf-8'))
       .on('result', row => {
         if (!localeDirs.includes(row.locale)) return;
 
-        if (typeof reportedSentences[row.locale] === undefined) {
-          reportedSentences[row.locale] = { reportedSentences: 0 };
+        if (reportedSentences[row.locale] === undefined) {
+          reportedSentences[row.locale] = [];
         }
 
-        reportedSentences[row.locale].reportedSentences++;
-        const tsvPath = path.join(__dirname, releaseName, row.locale);
-        tsvStream.pipe(fs.createWriteStream(tsvPath));
-
-        tsvStream.write({
-          ...row,
-          sentence: row.sentence.split('\r').join(' ')
-        });
+        reportedSentences[row.locale].push(row);
       })
       .on('end', () => {
+        Object.keys(reportedSentences).map((locale) => {
+          const localePath = path.join(__dirname, releaseName, locale, 'reported.tsv');
+
+          csv.write(reportedSentences[locale], TSV_OPTIONS)
+            .pipe(fs.createWriteStream(localePath));
+
+          reportedSentences[locale] = { reportedSentences: reportedSentences[locale].length };
+        });
+
         resolve(reportedSentences);
       })
   });
