@@ -22,7 +22,10 @@ const getReportedSentences = (db, localeDirs, releaseName) => {
           reportedSentences[row.locale] = [];
         }
 
-        reportedSentences[row.locale].push(row);
+        reportedSentences[row.locale].push({
+          ...row,
+          sentence: row.sentence.split('\r').join(' ')
+        });
       })
       .on('end', () => {
         Object.keys(reportedSentences).map((locale) => {

@@ -61,7 +61,7 @@ const calculateAggregateStats = stats => {
   let totalDuration = 0;
   let totalValidDurationSecs = 0;
 
-  for (const locale in stats.locales) {
+  for (const locale of localeDirs) {
     const localeStats = stats.locales[locale];
     const validClips = localeStats.buckets ? localeStats.buckets.validated : 0;
 

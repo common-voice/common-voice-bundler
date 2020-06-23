@@ -152,5 +152,6 @@ module.exports = {
   unitToHours,
   getLocaleDirs,
   hashId,
-  sumDurations
+  sumDurations,
+  bytesToSize
 };

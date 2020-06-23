@@ -86,7 +86,7 @@ const processAndDownloadClips = (db, clipBucket, minorityLangs) => {
         console.log('');
         tsvStream.end();
 
-        fs.appendFile(path.join(__dirname, RELEASE_NAME, 'errors.json'), errors, 'utf8', function (err) {
+        fs.appendFile(path.join(__dirname, RELEASE_NAME, 'errors.json'), JSON.stringify(errors), 'utf8', function (err) {
           if (err) throw err;
         });
 
@@ -107,6 +107,10 @@ const processAndDownloadClips = (db, clipBucket, minorityLangs) => {
         renderProgress();
 
         activeBucketConnections++;
+
+        if (activeBucketConnections > 50) {
+          db.pause();
+        }
 
         getMetadata(row.path).then(metadata => {
           activeBucketConnections--;
@@ -140,6 +144,7 @@ const processAndDownloadClips = (db, clipBucket, minorityLangs) => {
             });
 
             if ((fs.existsSync(soundFilePath) && fs.statSync(soundFilePath)['size'] > 0) || config.get('skipDownload')) {
+              cleanUp();
               return;
             }
 
