@@ -86,10 +86,21 @@ const calculateAggregateStats = stats => {
 }
 
 const collectAndUploadStats = async stats => {
-  const statsJSON = calculateAggregateStats({
-    bundleURLTemplate: `https://${OUT_BUCKET_NAME}.s3.amazonaws.com/${RELEASE_NAME}/{locale}.tar.gz`,
-    locales: merge(...stats)
-  });
+  let statsJSON;
+  const locales = merge(...stats);
+
+  if (config.get('singleBundle')) {
+    statsJSON = calculateAggregateStats({
+      bundleURL: `https://${OUT_BUCKET_NAME}.s3.amazonaws.com/${RELEASE_NAME}/${RELEASE_NAME}.tar.gz`,
+      locales: {...localles, overall: null},
+      overall: locales.overall
+    });
+  } else {
+    statsJSON = calculateAggregateStats({
+      bundleURLTemplate: `https://${OUT_BUCKET_NAME}.s3.amazonaws.com/${RELEASE_NAME}/{locale}.tar.gz`,
+      locales
+    });
+  }
 
   saveStatsToDisk(statsJSON);
 
