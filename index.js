@@ -92,7 +92,7 @@ const collectAndUploadStats = async stats => {
   if (config.get('singleBundle')) {
     statsJSON = calculateAggregateStats({
       bundleURL: `https://${OUT_BUCKET_NAME}.s3.amazonaws.com/${RELEASE_NAME}/${RELEASE_NAME}.tar.gz`,
-      locales: {...localles, overall: null},
+      locales: {...locales, overall: null},
       overall: locales.overall
     });
   } else {

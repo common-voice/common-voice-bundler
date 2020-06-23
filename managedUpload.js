@@ -34,11 +34,11 @@ const tarAndUploadBundle = (paths, archiveName, releaseName, bundlerBucket) => {
     writeStream.on('finish', () => {
       const hash = crypto.createHash('sha256');
       let checksum;
+      console.log(`creating checksum for ${archiveName}...`);
 
       fs.createReadStream(filePath)
         .pipe(stream)
         .on('data', (data) => {
-          process.stdout.write(`creating checksum for ${archiveName}...\r`);
           hash.update(data, 'utf8');
         })
         .on('end', () => {
@@ -54,7 +54,7 @@ const tarAndUploadBundle = (paths, archiveName, releaseName, bundlerBucket) => {
             .promise()
         )
         .then(({ ContentLength }) => {
-          console.log('');
+          console.log(`${archiveName} uploaded`);
           resolve({ size: ContentLength, checksum });
         })
         .catch(err => console.error(err));
@@ -64,7 +64,7 @@ const tarAndUploadBundle = (paths, archiveName, releaseName, bundlerBucket) => {
       .c({ gzip: true }, paths)
       .on('data', (data) => {
         tarSize = tarSize + data.length;
-        process.stdout.write(`archive size: ${bytesToSize(tarSize)}\r`);
+        process.stdout.write(`archive size: ${bytesToSize(tarSize)}      \r`);
 
         writeStream.write(data);
       }).on('end', () => {
