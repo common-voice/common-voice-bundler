@@ -4,6 +4,7 @@ const path = require('path');
 const tar = require('tar');
 const { PassThrough } = require('stream');
 const { logProgress } = require('./helpers');
+const crypto = require('crypto');
 
 const RELEASE_NAME = config.get('releaseName');
 const { name: OUT_BUCKET_NAME } = config.get('outBucket');
@@ -14,6 +15,7 @@ const uploadDataset = (localeDirs, bundlerBucket, releaseName) => {
       const stream = new PassThrough();
       const archiveName = `${releaseName}/${locale}.tar.gz`;
       console.log('archiving & uploading', archiveName);
+
       const managedUpload = bundlerBucket.upload({
         Body: stream,
         Bucket: OUT_BUCKET_NAME,
@@ -23,23 +25,39 @@ const uploadDataset = (localeDirs, bundlerBucket, releaseName) => {
       logProgress(managedUpload);
 
       const localeDir = path.join(RELEASE_NAME, locale);
-      tar
-        .c({ gzip: true, cwd: localeDir }, fs.readdirSync(localeDir))
-        .pipe(stream);
 
-      return managedUpload
-        .promise()
-        .then(() =>
-          bundlerBucket
-            .headObject({ Bucket: OUT_BUCKET_NAME, Key: archiveName })
+      const filePath = path.join(__dirname, releaseName, `${locale}.tar.gz`);
+
+      return tar
+        .c({ gzip: true, cwd: localeDir, file: filePath }, fs.readdirSync(localeDir))
+        .then(() => {
+          const hash = crypto.createHash('sha256');
+          let checksum;
+
+          fs.createReadStream(filePath)
+            .pipe(stream)
+            .on('data', (data) => {
+              hash.update(data, 'utf8');
+            })
+            .on('end', () => {
+              checksum = hash.digest('hex');
+            });
+
+          return managedUpload
             .promise()
-        )
-        .then(({ ContentLength }) => {
-          console.log('');
-          sizes[locale] = { size: ContentLength };
-          return sizes;
+            .then(() =>
+              bundlerBucket
+                .headObject({ Bucket: OUT_BUCKET_NAME, Key: archiveName })
+                .promise()
+            )
+            .then(({ ContentLength }) => {
+              console.log('');
+              sizes[locale] = { size: ContentLength, checksum };
+              return sizes;
+            })
+            .catch(err => console.error(err));
         })
-        .catch(err => console.error(err));
+
     });
   }, Promise.resolve({}));
 }

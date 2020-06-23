@@ -91,6 +91,10 @@ const config = convict({
   queryFile: {
     format: String,
     default: 'bundleAll.sql'
+  },
+  singleBundle: {
+    format: Boolean,
+    default: false
   }
 });
 
