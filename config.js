@@ -84,6 +84,10 @@ const config = convict({
     format: Boolean,
     default: false
   },
+  skipReportedSentences: {
+    format: Boolean,
+    default: false
+  },
   queryFile: {
     format: String,
     default: 'bundleAll.sql'

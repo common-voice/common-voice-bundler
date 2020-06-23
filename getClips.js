@@ -24,11 +24,12 @@ const { name: CLIP_BUCKET_NAME } = config.get('clipBucket');
 
 const processAndDownloadClips = (db, clipBucket, minorityLangs) => {
   return new Promise(resolve => {
-    let activeDownloads = 0;
+    let activeBucketConnections = 0;
     let rowIndex = 0;
     let clipSavedIndex = 0;
     let readAllRows = false;
-    const stats = { errors: [] };
+    const stats = {};
+    const errors = [];
 
     const tsvStream = csv.createWriteStream(TSV_OPTIONS);
 
@@ -63,7 +64,7 @@ const processAndDownloadClips = (db, clipBucket, minorityLangs) => {
     };
 
     const formatFinalStats = (localeSplits) => {
-      return objectMap(localeSplits, ({ clips, splits, usersSet }) => ({
+      const processedStats = objectMap(localeSplits, ({ clips, splits, usersSet }) => ({
         clips,
         splits: objectMap(splits, (values, key) => {
           const label = key ? key : '';
@@ -71,6 +72,8 @@ const processAndDownloadClips = (db, clipBucket, minorityLangs) => {
         }),
         users: usersSet.size
       }));
+
+      return {...processedStats, errors}
     };
 
     const downloadClipFile = (path) => {
@@ -81,10 +84,18 @@ const processAndDownloadClips = (db, clipBucket, minorityLangs) => {
     };
 
     const cleanUp = () => {
-      if (readAllRows && activeDownloads == 0) {
+      if (readAllRows && activeBucketConnections == 0) {
         console.log('');
+        tsvStream.end();
         resolve(formatFinalStats(stats));
       }
+    };
+
+    const getMetadata = (path) => {
+      return clipBucket.headObject({ Key: path, Bucket: CLIP_BUCKET_NAME })
+        .promise()
+        .then(res => res)
+        .catch(err => console.log(err));
     };
 
     db.query(fs.readFileSync(QUERY_FILE, 'utf-8'))
@@ -92,53 +103,65 @@ const processAndDownloadClips = (db, clipBucket, minorityLangs) => {
         rowIndex++;
         renderProgress();
 
-        if (minorityLangs.includes(row.locale)) {
-          row.gender = '';
-          row.age = '';
-        }
+        activeBucketConnections++;
+        getMetadata(row.path).then(metadata => {
+          activeBucketConnections--;
+          cleanUp();
+          if (activeBucketConnections < 25) {
+            db.resume();
+          }
 
-        updateStats(stats, row);
-
-        const clipsDir = path.join(RELEASE_NAME, row.locale, 'clips');
-        const newPath = `common_voice_${row.locale}_${row.id}.mp3`;
-        const soundFilePath = path.join(clipsDir, newPath);
-
-        tsvStream.write({
-          ...row,
-          sentence: row.sentence.split('\r').join(' '),
-          client_id: config.get('skipHashing') ? row.client_id : hashId(row.client_id),
-          path: newPath
-        });
-
-        if (fs.existsSync(soundFilePath) || config.get('skipDownload')) {
-          return;
-        }
-
-        if (activeDownloads > 50) {
-          db.pause();
-        }
-
-        activeDownloads++;
-
-        mkDirByPathSync(clipsDir);
-        downloadClipFile(row.path)
-          .createReadStream()
-          .pipe(fs.createWriteStream(soundFilePath))
-          .on('finish', () => {
-            activeDownloads--;
-            if (activeDownloads < 25) {
-              db.resume();
+          if (metadata.ContentLength <= 128) {
+            errors.push({ path: row.path, size: metadata.ContentLength });
+            return;
+          } else {
+            if (minorityLangs.includes(row.locale)) {
+              row.gender = '';
+              row.age = '';
             }
 
-            clipSavedIndex++;
-            renderProgress();
-            cleanUp();
+            updateStats(stats, row);
+
+            const clipsDir = path.join(RELEASE_NAME, row.locale, 'clips');
+            const newPath = `common_voice_${row.locale}_${row.id}.mp3`;
+            const soundFilePath = path.join(clipsDir, newPath);
+
+            tsvStream.write({
+              ...row,
+              sentence: row.sentence.split('\r').join(' '),
+              client_id: config.get('skipHashing') ? row.client_id : hashId(row.client_id),
+              path: newPath
+            });
+
+            if ((fs.existsSync(soundFilePath) && fs.statSync(soundFilePath)['size'] > 0) || config.get('skipDownload')) {
+              return;
+            }
+
+            activeBucketConnections++;
+
+            mkDirByPathSync(clipsDir);
+            downloadClipFile(row.path)
+              .createReadStream()
+              .pipe(fs.createWriteStream(soundFilePath))
+              .on('finish', () => {
+                activeBucketConnections--;
+                if (activeBucketConnections < 25) {
+                  db.resume();
+                }
+
+                clipSavedIndex++;
+                renderProgress();
+                cleanUp();
+              });
+            }
+
+          cleanUp();
           });
+
 
       })
       .on('end', () => {
         readAllRows = true;
-        tsvStream.end();
         cleanUp();
       });
   });
