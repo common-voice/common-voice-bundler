@@ -1,7 +1,9 @@
 # CommonVoice Bundler
+
 Script for bundling Common Voice (https://voice.mozilla.org) clips by language.
 
 ## What it does
+
 1. Query database for all clip data
 1. Download all those clips from an S3
 1. Anonymize clips `client_id` and filename (called `path`)
@@ -10,6 +12,7 @@ Script for bundling Common Voice (https://voice.mozilla.org) clips by language.
 1. Calculate statistics for all the languages
 
 ## How to run it
+
 1. Install [node](https://nodejs.org) (>= 8.3.0)
 1. Install [yarn](https://yarnpkg.com/docs/install)
 1. Install [CorporaCreator](https://github.com/mozilla/CorporaCreator)

@@ -2,15 +2,19 @@ const fs = require('fs');
 const path = require('path');
 const csv = require('fast-csv');
 
-const QUERY_FILE = path.join(__dirname, 'queries', 'getReportedSentences.sql');
-
-const TSV_OPTIONS = {
-  headers: true,
-  delimiter: '\t',
-  quote: false
-};
-
 const getReportedSentences = (db, localeDirs, releaseName) => {
+  const QUERY_FILE = path.join(
+    __dirname,
+    'queries',
+    'getReportedSentences.sql'
+  );
+
+  const TSV_OPTIONS = {
+    headers: true,
+    delimiter: '\t',
+    quote: false,
+  };
+
   return new Promise(resolve => {
     const reportedSentences = {};
 
@@ -24,24 +28,32 @@ const getReportedSentences = (db, localeDirs, releaseName) => {
 
         reportedSentences[row.locale].push({
           ...row,
-          sentence: row.sentence.split('\r').join(' ')
+          sentence: row.sentence.split('\r').join(' '),
         });
       })
       .on('end', () => {
-        Object.keys(reportedSentences).map((locale) => {
-          const localePath = path.join(__dirname, releaseName, locale, 'reported.tsv');
+        Object.keys(reportedSentences).map(locale => {
+          const localePath = path.join(
+            __dirname,
+            releaseName,
+            locale,
+            'reported.tsv'
+          );
 
-          csv.write(reportedSentences[locale], TSV_OPTIONS)
+          csv
+            .write(reportedSentences[locale], TSV_OPTIONS)
             .pipe(fs.createWriteStream(localePath));
 
-          reportedSentences[locale] = { reportedSentences: reportedSentences[locale].length };
+          reportedSentences[locale] = {
+            reportedSentences: reportedSentences[locale].length,
+          };
         });
 
         resolve(reportedSentences);
-      })
+      });
   });
-}
+};
 
 module.exports = {
-  getReportedSentences
-}
+  getReportedSentences,
+};

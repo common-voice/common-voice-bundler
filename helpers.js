@@ -96,7 +96,7 @@ function unitToHours(duration, unit, sigDig) {
   let perHr = 1;
   const sigDigMultiplier = Math.pow(10, sigDig);
 
-  switch(unit) {
+  switch (unit) {
     case 'ms':
       perHr = 60 * 60 * 1000;
       break;
@@ -111,37 +111,31 @@ function unitToHours(duration, unit, sigDig) {
   return Math.floor((duration / perHr) * sigDigMultiplier) / sigDigMultiplier;
 }
 
-function getLocaleDirs(outDir) {
-  return fs
-    .readdirSync(outDir)
-    .filter(f => fs.statSync(path.join(outDir, f)).isDirectory());
-}
-
 function hashId(id) {
-  return crypto
-    .createHash('sha512')
-    .update(id)
-    .digest('hex');
+  return crypto.createHash('sha512').update(id).digest('hex');
 }
 
 const sumDurations = async (localeDirs, releaseName) => {
   const durations = {};
   for (const locale of localeDirs) {
-    const duration = Number((await spawn(
-      'mp3-duration-sum',
-      [path.join(releaseName, locale, 'clips')],
-      {
-        encoding: 'utf8',
-        shell: true,
-        maxBuffer: 1024 * 1024 * 10,
-      }
-    )).stdout);
+    const duration = Number(
+      (
+        await spawn(
+          'mp3-duration-sum',
+          [path.join(releaseName, locale, 'clips')],
+          {
+            encoding: 'utf8',
+            shell: true,
+            maxBuffer: 1024 * 1024 * 10,
+          }
+        )
+      ).stdout
+    );
 
     durations[locale] = { duration };
   }
   return durations;
 };
-
 
 module.exports = {
   countFileLines,
@@ -150,8 +144,7 @@ module.exports = {
   objectMap,
   promptLoop,
   unitToHours,
-  getLocaleDirs,
   hashId,
   sumDurations,
-  bytesToSize
+  bytesToSize,
 };

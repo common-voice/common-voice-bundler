@@ -50,7 +50,7 @@ function initS3Bucket(bucketOpts) {
     region,
   });
 
-  bucket.headBucket({ Bucket: name }, (err) => {
+  bucket.headBucket({ Bucket: name }, err => {
     if (err) {
       throw new Error(
         `An error occurred trying to connect to S3 instance ${name}`
@@ -58,7 +58,7 @@ function initS3Bucket(bucketOpts) {
     }
   });
 
-  return bucket;
+  return { name, bucket };
 }
 
 function initialize() {
@@ -80,5 +80,5 @@ function initialize() {
 }
 
 module.exports = {
-  initialize
+  initialize,
 };

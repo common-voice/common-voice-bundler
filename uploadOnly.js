@@ -5,10 +5,7 @@ const path = require('path');
 const readline = require('readline');
 const tar = require('tar');
 const { PassThrough } = require('stream');
-const {
-  logProgress
-} = require('./helpers');
-
+const { logProgress } = require('./helpers');
 
 const { accessKeyId, secretAccessKey, name: outBucketName } = config.get(
   'outBucket'
@@ -19,16 +16,16 @@ const outBucket = new S3({
     ? {
         credentials: {
           accessKeyId,
-          secretAccessKey
-        }
+          secretAccessKey,
+        },
       }
     : {}),
-  region: 'us-west-2'
+  region: 'us-west-2',
 });
 
 const releaseDir = config.get('releaseName');
 
-const tarAndUpload = (locale) => {
+const tarAndUpload = locale => {
   return new Promise(resolve => {
     const stream = new PassThrough();
     const archiveName = `${releaseDir}/${locale}.tar.gz`;
@@ -37,7 +34,7 @@ const tarAndUpload = (locale) => {
       Body: stream,
       Bucket: outBucketName,
       Key: archiveName,
-      ACL: 'public-read'
+      ACL: 'public-read',
     });
 
     logProgress(managedUpload);
@@ -52,10 +49,12 @@ const tarAndUpload = (locale) => {
       .then(() =>
         outBucket
           .headObject({ Bucket: outBucketName, Key: archiveName })
-          .promise().then(() => resolve()))
+          .promise()
+          .then(() => resolve())
+      )
       .catch(err => console.error(err));
   });
-}
+};
 
 try {
   if (process.argv.length !== 3)
@@ -66,7 +65,6 @@ try {
   tarAndUpload(locale)
     .catch(e => console.error(e))
     .finally(() => process.exit(0));
-
 } catch (e) {
   console.error(e.message);
   process.exit(1);
