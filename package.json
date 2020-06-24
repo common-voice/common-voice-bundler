@@ -9,6 +9,7 @@
   "dependencies": {
     "aws-sdk": "^2.383.0",
     "convict": "^4.4.1",
+    "dotenv": "^8.2.0",
     "fast-csv": "^2.4.1",
     "lodash.merge": "^4.6.2",
     "mysql": "^2.16.0",

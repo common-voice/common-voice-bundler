@@ -1,6 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
+const crypto = require('crypto');
+const { spawn } = require('promisify-child-process');
 
 const prompt = readline.createInterface({
   input: process.stdin,
@@ -88,12 +90,12 @@ async function promptLoop(prompt, options) {
   const callback = options[answer.toLowerCase()];
 
   if (callback) await callback();
-  else await readlineLoop(promptLoop, options);
-};
+  else await promptLoop(promptLoop, options);
+}
 
 function unitToHours(duration, unit, sigDig) {
-  perHr = 1;
-  sigDigMultiplier = Math.pow(10, sigDig);
+  let perHr = 1;
+  const sigDigMultiplier = Math.pow(10, sigDig);
 
   switch(unit) {
     case 'ms':
@@ -110,12 +112,46 @@ function unitToHours(duration, unit, sigDig) {
   return Math.floor((duration / perHr) * sigDigMultiplier) / sigDigMultiplier;
 }
 
+function getLocaleDirs(outDir) {
+  return fs
+    .readdirSync(outDir)
+    .filter(f => fs.statSync(path.join(outDir, f)).isDirectory());
+}
+
+function hashId(id) {
+  return crypto
+    .createHash('sha512')
+    .update(id)
+    .digest('hex');
+}
+
+const sumDurations = async (localeDirs, outDir) => {
+  const durations = {};
+  for (const locale of localeDirs) {
+    const duration = Number((await spawn(
+      'mp3-duration-sum',
+      [path.join(outDir, locale, 'clips')],
+      {
+        encoding: 'utf8',
+        shell: true,
+        maxBuffer: 1024 * 1024 * 10,
+      }
+    )).stdout);
+
+    durations[locale] = { duration };
+  }
+  return durations;
+};
+
+
 module.exports = {
   countFileLines,
   logProgress,
   mkDirByPathSync,
   objectMap,
-  promptAsync,
   promptLoop,
-  unitToHours
+  unitToHours,
+  getLocaleDirs,
+  hashId,
+  sumDurations
 };
