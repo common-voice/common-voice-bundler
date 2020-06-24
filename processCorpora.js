@@ -7,7 +7,7 @@ const processCorpora = async releaseName => {
   const releaseDir = path.join(__dirname, releaseName);
   const tsvPath = path.join(releaseDir, 'clips.tsv');
 
-  const query = `In a separate shell in the same directory:
+  const query = `In a separate shell, run the following command:
     create-corpora -f ${tsvPath} -d ${releaseDir} -v\n
 When that has completed, return to this shell and type 'corpora-complete' and hit enter > `;
 
