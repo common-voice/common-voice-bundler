@@ -18,5 +18,5 @@ FROM clips
                ON user_clients.client_id = accents.client_id AND
                   accents.locale_id = clips.locale_id
      LEFT JOIN locales ON clips.locale_id = locales.id
-WHERE clips.created_at <= "2020-06-22 11:59:59"
+WHERE clips.created_at <= "2020-06-22 23:59:59"
 GROUP BY clips.id
