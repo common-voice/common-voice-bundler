@@ -1,5 +1,6 @@
 const fs = require('fs');
 const merge = require('lodash.merge');
+const config = require('./config');
 const { objectMap, unitToHours } = require('./helpers');
 
 const updateClipStats = (stats, row) => {
@@ -103,7 +104,7 @@ const collectAndUploadStats = async (
     );
   }
 
-  saveStatsToDisk(statsJson);
+  saveStatsToDisk(releaseName, statsJson);
 
   return bundlerBucket.bucket
     .putObject({
@@ -128,8 +129,7 @@ const saveStatsToDisk = (releaseName, stats) => {
 
 module.exports = {
   updateClipStats,
-  formatFinalClipsStats,
-  calculateAggregateStats,
-  collectAndUploadStats,
   saveStatsToDisk,
+  formatFinalClipsStats,
+  collectAndUploadStats,
 };

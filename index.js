@@ -74,7 +74,7 @@ const run = () => {
         sumDurations(releaseLocales, RELEASE_NAME),
         getReportedSentences(db, releaseLocales, RELEASE_NAME),
         processCorpora(RELEASE_NAME).then(async () => {
-          merge(
+          return merge(
             await countBuckets(releaseLocales, RELEASE_NAME),
             await archiveAndUpload(releaseLocales, bundlerBucket, RELEASE_NAME)
           );
@@ -82,7 +82,7 @@ const run = () => {
       ]);
     })
     .then(mergedStats => {
-      collectAndUploadStats(
+      return collectAndUploadStats(
         mergedStats,
         releaseLocales,
         bundlerBucket,
