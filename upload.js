@@ -4,14 +4,13 @@ const path = require('path');
 const tar = require('tar');
 const merge = require('lodash.merge');
 const { PassThrough } = require('stream');
-const { logProgress, bytesToSize } = require('./helpers');
+const { logProgress, bytesToSize, mkDirByPathSync } = require('./helpers');
 const crypto = require('crypto');
 
 const SINGLE_BUNDLE = config.get('singleBundle');
 
-const addUploadToDisk = (releaseName, locale, data) => {
+const addUploadToDisk = (releaseName, label, data) => {
   const uploadPath = path.join(releaseName, 'uploaded.json');
-  const label = locale || releaseName;
   let diskData = {};
 
   if (fs.existsSync(uploadPath)) {
@@ -29,17 +28,15 @@ const addUploadToDisk = (releaseName, locale, data) => {
 };
 
 const checkIfProcessed = (releaseName, locale) => {
-  return fs.readFile(
-    path.join(releaseName, 'uploaded.json'),
-    'utf-8',
-    (err, data) => {
-      if (err) return false;
-
-      const label = locale || releaseName;
-      const uploaded = JSON.parse(data);
-      return uploaded[label];
-    }
-  );
+  try {
+    const data = fs.readFileSync(path.join(releaseName, 'uploaded.json'), 'utf-8')
+    const label = locale || releaseName;
+    const uploaded = JSON.parse(data);
+    if (uploaded[label]) console.log(`${label}.tar.gz was previously uploaded with a checksum of ${uploaded[label].checksum}`);
+    return uploaded[label];
+  } catch(e) {
+    return false;
+  }
 };
 
 const getUploadedDataFromDisk = (releaseName, locale) => {
@@ -52,62 +49,64 @@ const getUploadedDataFromDisk = (releaseName, locale) => {
 
 const tarAndUploadBundle = (
   clipsPaths,
-  archiveLabel,
   releaseName,
+  archiveLabel,
   bundlerBucket
 ) => {
   return new Promise(resolve => {
     let tarSize = 0;
 
     const stream = new PassThrough();
-    const archivePath = `${releaseName}/${archiveLabel}.tar.gz`;
+    const fileName = `${archiveLabel}.tar.gz`;
+    const localArchiveDir = path.join(releaseName, 'tarballs');
+    const remoteArchiveKey = `${releaseName}/${fileName}`;
 
-    console.log('archiving & uploading', archivePath);
+    mkDirByPathSync(localArchiveDir);
+
+    console.log(`archiving & uploading: ${fileName}`);
 
     const managedUpload = bundlerBucket.bucket.upload({
       Body: stream,
       Bucket: bundlerBucket.name,
-      Key: archivePath,
+      Key: remoteArchiveKey,
       ACL: 'public-read',
     });
     logProgress(managedUpload);
 
-    const filePath = path.join(
-      releaseName,
-      'tarballs',
-      `${releaseName}.tar.gz`
-    );
-    const writeStream = fs.createWriteStream(filePath);
+    const localFilePath = path.join(localArchiveDir, `${fileName}`);
+    const writeStream = fs.createWriteStream(localFilePath);
 
     writeStream.on('finish', () => {
       const hash = crypto.createHash('sha256');
       let checksum;
-      console.log(`creating checksum for ${archiveName}...`);
+      console.log(`creating checksum for ${fileName}...`);
 
-      fs.createReadStream(filePath)
+      fs.createReadStream(localFilePath)
         .pipe(stream)
         .on('data', data => {
           hash.update(data, 'utf8');
         })
         .on('end', () => {
           checksum = hash.digest('hex');
-          console.log(`checksum created for ${archiveName}: ${checksum}`);
+          console.log(`checksum created for ${fileName}: ${checksum}`);
         });
 
       return managedUpload
         .promise()
         .then(() =>
           bundlerBucket.bucket
-            .headObject({ Bucket: bundlerBucket.name, Key: archiveName })
+            .headObject({ Bucket: bundlerBucket.name, Key: remoteArchiveKey })
             .promise()
         )
         .then(({ ContentLength }) => {
-          console.log(`${archiveName} uploaded`);
-          addUploadToDisk(releaseName, locale);
-          resolve({ size: ContentLength, checksum });
+          console.log(`${fileName} uploaded`);
+          const metadata = { size: ContentLength, checksum };
+          addUploadToDisk(releaseName, archiveLabel, metadata);
+          resolve(metadata);
         })
         .catch(err => console.error(err));
     });
+
 
     return tar
       .c({ gzip: true }, clipsPaths)
@@ -123,7 +122,7 @@ const tarAndUploadBundle = (
   });
 };
 
-const uploadDataset = (locales, releaseName, bundlerBucket) => {
+const uploadDataset = (locales, bundlerBucket, releaseName) => {
   if (SINGLE_BUNDLE) {
     if (checkIfProcessed(releaseName)) {
       return getUploadedDataFromDisk(releaseName);
@@ -150,8 +149,8 @@ const uploadDataset = (locales, releaseName, bundlerBucket) => {
       }
 
       return tarAndUploadBundle(
-        localeDirPaths,
-        archiveName,
+        localeDir,
+        releaseName,
         locale,
         bundlerBucket
       ).then(metadata => {
@@ -159,7 +158,7 @@ const uploadDataset = (locales, releaseName, bundlerBucket) => {
       });
     });
 
-    return Promise.all(bundleStats => {
+    return Promise.all(bundlePromises).then(bundleStats => {
       return merge(...bundleStats);
     });
   }

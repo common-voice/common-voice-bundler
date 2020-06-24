@@ -115,9 +115,9 @@ function hashId(id) {
   return crypto.createHash('sha512').update(id).digest('hex');
 }
 
-const sumDurations = async (localeDirs, releaseName) => {
+const sumDurations = async (releaseLocales, releaseName) => {
   const durations = {};
-  for (const locale of localeDirs) {
+  for (const locale of releaseLocales) {
     const duration = Number(
       (
         await spawn(

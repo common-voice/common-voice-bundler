@@ -1,3 +1,7 @@
+const fs = require('fs');
+const merge = require('lodash.merge');
+const { objectMap, unitToHours } = require('./helpers');
+
 const updateClipStats = (stats, row) => {
   const localeStats =
     stats[row.locale] ||

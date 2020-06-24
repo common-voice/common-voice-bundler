@@ -10,7 +10,7 @@ const { updateClipStats, formatFinalClipsStats } = require('./processStats');
 
 const renderProgress = (rows, clips, downloads) => {
   process.stdout.write(
-    `${rows} rows processed, ${clips} checked, ${downloads} downloaded`
+    `${rows} rows processed, ${clips} checked, ${downloads} downloaded\r`
   );
 };
 
@@ -28,6 +28,17 @@ const getMetadata = async (clipBucket, path) => {
     .then(res => res)
     .catch(err => console.log(err));
 };
+
+const appendToTsv = (tsvStream, row, path) => {
+  tsvStream.write({
+    ...row,
+    sentence: row.sentence.split('\r').join(' '),
+    client_id: config.get('skipHashing')
+      ? row.client_id
+      : hashId(row.client_id),
+    path,
+  });
+}
 
 const processAndDownloadClips = (
   db,
@@ -47,7 +58,7 @@ const processAndDownloadClips = (
   let clipSavedIndex = 0;
   let clipCheckedIndex = 0;
   let readAllRows = false;
-  const stats = {};
+  let stats = {};
   const errors = {};
 
   const tsvStream = csv.createWriteStream(TSV_OPTIONS);
@@ -92,6 +103,7 @@ const processAndDownloadClips = (
           fs.existsSync(soundFilePath) &&
           fs.statSync(soundFilePath)['size'] > 0
         ) {
+          appendToTsv(tsvStream, row, newPath);
           return;
         }
 
@@ -119,14 +131,7 @@ const processAndDownloadClips = (
             cleanUp();
             return;
           } else {
-            tsvStream.write({
-              ...row,
-              sentence: row.sentence.split('\r').join(' '),
-              client_id: config.get('skipHashing')
-                ? row.client_id
-                : hashId(row.client_id),
-              path: newPath,
-            });
+            appendToTsv(tsvStream, row, newPath);
 
             if (config.get('skipDownload')) {
               cleanUp();

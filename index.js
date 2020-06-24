@@ -18,12 +18,12 @@ const { sumDurations } = require('./helpers');
 const archiveAndUpload = async (releaseLocales, bundlerBucket, releaseName) => {
   return config.get('skipBundling')
     ? Promise.resolve()
-    : _archiveAndUpload(localeDirs, bundlerBucket, releaseName);
+    : _archiveAndUpload(releaseLocales, bundlerBucket, releaseName);
 };
 const getReportedSentences = async (db, releaseLocales, releaseName) => {
   return config.get('skipReportedSentences')
     ? Promise.resolve()
-    : _getReportedSentences(db, localeDirs, releaseName);
+    : _getReportedSentences(db, releaseLocales, releaseName);
 };
 
 const processCorpora = async releaseName => {
@@ -63,7 +63,7 @@ const run = () => {
 
   checkRuleOfFive()
     .then(minorityLangs =>
-      processAndDownloadClips(db, clipBucket, minorityLangs)
+      processAndDownloadClips(db, clipBucket, RELEASE_NAME, minorityLangs)
     )
     .then(stats => {
       saveStatsToDisk(RELEASE_NAME, stats);
