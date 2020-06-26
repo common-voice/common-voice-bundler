@@ -3,6 +3,7 @@ const path = require('path');
 const readline = require('readline');
 const crypto = require('crypto');
 const { spawn } = require('promisify-child-process');
+const { saveStatsToDisk } = require('./processStats');
 
 const prompt = readline.createInterface({
   input: process.stdin,
@@ -121,7 +122,7 @@ const sumDurations = async (releaseLocales, releaseName) => {
     const duration = Number(
       (
         await spawn(
-          'mp3-duration-sum',
+          'RUST_BACKTRACE=1 mp3-duration-sum',
           [path.join(releaseName, locale, 'clips')],
           {
             encoding: 'utf8',
@@ -133,7 +134,9 @@ const sumDurations = async (releaseLocales, releaseName) => {
     );
 
     durations[locale] = { duration };
+    saveStatsToDisk(releaseName, durations);
   }
+
   return durations;
 };
 

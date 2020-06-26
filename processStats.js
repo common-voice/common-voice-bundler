@@ -27,8 +27,8 @@ const updateClipStats = (stats, row) => {
   return stats;
 };
 
-const formatFinalClipsStats = localeSplits => {
-  return (processedStats = objectMap(
+const formatFinalClipsStats = (releaseName, localeSplits) => {
+  const processedStats = objectMap(
     localeSplits,
     ({ clips, splits, usersSet }) => ({
       clips,
@@ -42,7 +42,10 @@ const formatFinalClipsStats = localeSplits => {
       }),
       users: usersSet.size,
     })
-  ));
+  );
+
+  saveStatsToDisk(releaseName, processedStats);
+  return processedStats;
 };
 
 const calculateAggregateStats = (stats, releaseLocales) => {
@@ -119,7 +122,7 @@ const collectAndUploadStats = async (
 const saveStatsToDisk = (releaseName, stats) => {
   fs.writeFile(
     `${releaseName}/stats.json`,
-    JSON.stringify(stats),
+    JSON.stringify(merge(...stats, loadStatsFromDisk(releaseName))),
     'utf8',
     err => {
       if (err) throw err;
@@ -127,9 +130,17 @@ const saveStatsToDisk = (releaseName, stats) => {
   );
 };
 
+const loadStatsFromDisk = (releaseName) => {
+  fs.readFile(`${releaseName}/stats.json`, 'utf8', (err, data) => {
+    if (err) return {};
+    return JSON.parse(data);
+  });
+}
+
 module.exports = {
   updateClipStats,
   saveStatsToDisk,
   formatFinalClipsStats,
   collectAndUploadStats,
+  loadStatsFromDisk
 };

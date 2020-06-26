@@ -88,6 +88,10 @@ const config = convict({
     format: Boolean,
     default: false,
   },
+  startFromCorpora: {
+    format: Boolean,
+    default: false
+  },
   queryFile: {
     format: String,
     default: 'bundleAll.sql',

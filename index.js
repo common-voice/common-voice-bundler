@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const merge = require('lodash.merge');
 const config = require('./config');
-const { processAndDownloadClips } = require('./getClips');
+const { processAndDownloadClips: _processAndDownloadClips } = require('./getClips');
 const {
   getReportedSentences: _getReportedSentences,
 } = require('./getReportedSentences');
@@ -26,13 +26,19 @@ const getReportedSentences = async (db, releaseLocales, releaseName) => {
     : _getReportedSentences(db, releaseLocales, releaseName);
 };
 
+const processAndDownloadClips = async (db, clipBucket, releaseName, minorityLangs) => {
+  return config.get('startFromCorpora')
+    ? Promise.resolve(loadStatsFromDisk(releaseName))
+    : _processAndDownloadClips(db, clipBucket, releaseName, minorityLangs);
+}
+
 const processCorpora = async releaseName => {
   return config.get('skipCorpora')
     ? Promise.resolve()
     : _processCorpora(releaseName);
 };
 
-const checkRuleOfFive = async () => {
+const checkRuleOfFive = async (db) => {
   const minorityLangs = [];
   const queryFile = path.join(__dirname, 'queries', 'uniqueSpeakers.sql');
 
@@ -61,12 +67,11 @@ const run = () => {
 
   db.connect();
 
-  checkRuleOfFive()
+  checkRuleOfFive(db)
     .then(minorityLangs =>
       processAndDownloadClips(db, clipBucket, RELEASE_NAME, minorityLangs)
     )
     .then(stats => {
-      saveStatsToDisk(RELEASE_NAME, stats);
       releaseLocales = Object.keys(stats);
 
       return Promise.all([

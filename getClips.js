@@ -5,40 +5,8 @@ const csv = require('fast-csv');
 const config = require('./config');
 
 const { hashId, objectMap, mkDirByPathSync, append } = require('./helpers');
-
 const { updateClipStats, formatFinalClipsStats } = require('./processStats');
-
-const renderProgress = (rows, clips, downloads) => {
-  process.stdout.write(
-    `${rows} rows processed, ${clips} checked, ${downloads} downloaded\r`
-  );
-};
-
-const downloadClipFile = (clipBucket, path) => {
-  return clipBucket.bucket.getObject({
-    Bucket: clipBucket.name,
-    Key: path,
-  });
-};
-
-const getMetadata = async (clipBucket, path) => {
-  return clipBucket.bucket
-    .headObject({ Key: path, Bucket: clipBucket.name })
-    .promise()
-    .then(res => res)
-    .catch(err => console.log(err));
-};
-
-const appendToTsv = (tsvStream, row, path) => {
-  tsvStream.write({
-    ...row,
-    sentence: row.sentence.split('\r').join(' '),
-    client_id: config.get('skipHashing')
-      ? row.client_id
-      : hashId(row.client_id),
-    path,
-  });
-}
+const errors = { tooSmall: {}, notFound: {}};
 
 const processAndDownloadClips = (
   db,
@@ -54,19 +22,18 @@ const processAndDownloadClips = (
   };
 
   let activeBucketConnections = 0;
+  let activeWriteStreams = 0;
   let rowIndex = 0;
   let clipSavedIndex = 0;
-  let clipCheckedIndex = 0;
   let readAllRows = false;
   let stats = {};
-  const errors = {};
 
   const tsvStream = csv.createWriteStream(TSV_OPTIONS);
   tsvStream.pipe(fs.createWriteStream(path.join(releaseName, 'clips.tsv')));
 
   return new Promise(resolve => {
     const cleanUp = () => {
-      if (readAllRows && activeBucketConnections == 0) {
+      if (readAllRows && activeBucketConnections == 0 && activeWriteStreams == 0) {
         console.log('');
         tsvStream.end();
 
@@ -79,14 +46,76 @@ const processAndDownloadClips = (
           }
         );
 
-        resolve(formatFinalClipsStats(stats));
+        resolve(formatFinalClipsStats(releaseName, stats));
       }
+    };
+
+    const updateDbStatus = () => {
+      if (activeBucketConnections > 50 || activeWriteStreams >  50) {
+        db.pause();
+      }
+
+      if (activeBucketConnections < 25 && activeWriteStreams < 25) {
+        db.resume();
+      }
+
+      cleanUp();
+    }
+
+    const appendToTsv = (row, filePath) => {
+      activeWriteStreams++;
+      updateDbStatus();
+
+      tsvStream.write({
+        ...row,
+        sentence: row.sentence.split('\r').join(' '),
+        client_id: config.get('skipHashing')
+          ? row.client_id
+          : hashId(row.client_id),
+        filePath,
+      }, () => {
+        activeWriteStreams--;
+        updateDbStatus();
+      });
+    }
+
+    const renderProgress = () => {
+      process.stdout.write(
+        `${rowIndex} rows processed, ${clipSavedIndex} downloaded\r`
+      );
+    };
+
+    const downloadClipFile = (path) => {
+      activeBucketConnections++;
+      updateDbStatus();
+
+      return clipBucket.bucket
+        .getObject({
+          Bucket: clipBucket.name,
+          Key: path,
+        });
+    };
+
+    const getMetadata = async (row) => {
+      activeBucketConnections++;
+      updateDbStatus();
+
+      return clipBucket.bucket
+        .headObject({ Key: row.path, Bucket: clipBucket.name })
+        .promise()
+        .then(res => res.ContentLength)
+        .catch(err => {
+          throw err;
+        }).finally(() => {
+          activeBucketConnections--;
+          updateDbStatus();
+        });
     };
 
     db.query(fs.readFileSync(QUERY_FILE, 'utf-8'))
       .on('result', row => {
         rowIndex++;
-        renderProgress(rowIndex, clipCheckedIndex, clipSavedIndex);
+        renderProgress(rowIndex, clipSavedIndex);
 
         if (minorityLangs.includes(row.locale)) {
           row.gender = '';
@@ -103,61 +132,46 @@ const processAndDownloadClips = (
           fs.existsSync(soundFilePath) &&
           fs.statSync(soundFilePath)['size'] > 0
         ) {
-          appendToTsv(tsvStream, row, newPath);
+          appendToTsv(row, newPath)
           return;
         }
 
-        activeBucketConnections++;
-
-        if (activeBucketConnections > 50) {
-          db.pause();
-        }
-
-        getMetadata(clipBucket, row.path).then(metadata => {
-          clipCheckedIndex++;
-          activeBucketConnections--;
-
-          if (activeBucketConnections < 25) {
-            db.resume();
-          }
-
+        getMetadata(row).then(metadata => {
           if (metadata.ContentLength <= 256) {
-            if (errors[row.locale] === undefined) errors[row.locale] = [];
-            errors[row.locale].push({
+            if (errors.tooSmall[row.locale] === undefined) errors.tooSmall[row.locale] = [];
+            errors.tooSmall[row.locale].push({
               path: row.path,
               size: metadata.ContentLength,
             });
-
-            cleanUp();
             return;
           } else {
-            appendToTsv(tsvStream, row, newPath);
+            appendToTsv(row, newPath);
 
             if (config.get('skipDownload')) {
               cleanUp();
               return;
             }
 
-            activeBucketConnections++;
-
             mkDirByPathSync(clipsDir);
 
-            downloadClipFile(clipBucket, row.path)
+            downloadClipFile(row.path)
               .createReadStream()
               .pipe(fs.createWriteStream(soundFilePath))
               .on('finish', () => {
-                activeBucketConnections--;
-                if (activeBucketConnections < 25) {
-                  db.resume();
-                }
-
                 clipSavedIndex++;
-                renderProgress(rowIndex, clipCheckedIndex, clipSavedIndex);
-                cleanUp();
+                renderProgress(rowIndex, clipSavedIndex);
+
+                activeBucketConnections--;
+                updateDbStatus();
               });
           }
 
           cleanUp();
+        }).catch((e) => {
+          if (errors.notFound[row.locale] === undefined) errors.notFound[row.locale] = [];
+          errors.notFound[row.locale].push({
+            path: row.path
+          });
         });
       })
       .on('end', () => {

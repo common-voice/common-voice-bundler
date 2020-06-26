@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const csv = require('fast-csv');
+const { saveStatsToDisk } = require('./processStats');
 
 const getReportedSentences = (db, localeDirs, releaseName) => {
   const QUERY_FILE = path.join(
@@ -49,6 +50,7 @@ const getReportedSentences = (db, localeDirs, releaseName) => {
           };
         });
 
+        saveStatsToDisk(releaseName, reportedSentences)
         resolve(reportedSentences);
       });
   });

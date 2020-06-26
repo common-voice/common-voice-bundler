@@ -138,6 +138,7 @@ const uploadDataset = (locales, bundlerBucket, releaseName) => {
       releaseName,
       bundlerBucket
     ).then(metadata => {
+      saveStatsToDisk(releaseName, { [releaseName]: metadata });
       return { [releaseName]: metadata };
     });
   } else {
@@ -159,7 +160,9 @@ const uploadDataset = (locales, bundlerBucket, releaseName) => {
     });
 
     return Promise.all(bundlePromises).then(bundleStats => {
-      return merge(...bundleStats);
+      const mergedStats = merge(...bundleStats)
+      saveStatsToDisk(releaseName, mergedStats);
+      return mergedStats;
     });
   }
 };

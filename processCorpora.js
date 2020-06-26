@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 const { countFileLines, promptLoop } = require('./helpers');
+const { saveStatsToDisk } = require('./processStats');
 
 const processCorpora = async releaseName => {
   const releaseDir = path.join(__dirname, releaseName);
@@ -42,6 +43,8 @@ const countBuckets = async (releaseLocales, releaseName) => {
         {}
       ),
     };
+
+    saveStatsToDisk(releaseName, buckets);
   }
 
   return buckets;
