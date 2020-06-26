@@ -3,14 +3,10 @@ const fs = require('fs');
 const path = require('path');
 const merge = require('lodash.merge');
 const config = require('./config');
+const { spawn } = require('promisify-child-process');
 const { processAndDownloadClips: _processAndDownloadClips } = require('./getClips');
-const {
-  getReportedSentences: _getReportedSentences,
-} = require('./getReportedSentences');
-const {
-  countBuckets,
-  processCorpora: _processCorpora,
-} = require('./processCorpora');
+const { getReportedSentences: _getReportedSentences } = require('./getReportedSentences');
+const { countBuckets, processCorpora: _processCorpora } = require('./processCorpora');
 const { collectAndUploadStats, saveStatsToDisk } = require('./processStats');
 const { uploadDataset: _archiveAndUpload } = require('./upload');
 

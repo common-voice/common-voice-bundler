@@ -2,7 +2,6 @@ const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
 const crypto = require('crypto');
-const { spawn } = require('promisify-child-process');
 
 const prompt = readline.createInterface({
   input: process.stdin,
