@@ -34,12 +34,6 @@ function countFileLines(filePath) {
   });
 }
 
-function logProgress(managedUpload, fileName) {
-  managedUpload.on('httpUploadProgress', progress => {
-    process.stdout.write(`${fileName} ${bytesToSize(progress.loaded)} upload progress\r`);
-  });
-}
-
 function mkDirByPathSync(targetDir) {
   const sep = path.sep;
   const initDir = path.isAbsolute(targetDir) ? sep : '';
@@ -116,7 +110,6 @@ function hashId(id) {
 
 module.exports = {
   countFileLines,
-  logProgress,
   mkDirByPathSync,
   promptLoop,
   unitToHours,

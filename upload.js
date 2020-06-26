@@ -4,7 +4,7 @@ const path = require('path');
 const tar = require('tar');
 const merge = require('lodash.merge');
 const { PassThrough } = require('stream');
-const { logProgress, bytesToSize, mkDirByPathSync } = require('./helpers');
+const { bytesToSize, mkDirByPathSync } = require('./helpers');
 const { saveStatsToDisk } = require('./processStats');
 const crypto = require('crypto');
 
@@ -40,6 +40,12 @@ const checkIfProcessed = (releaseName, locale) => {
   }
 };
 
+const logProgress = (managedUpload, fileName) => {
+  managedUpload.on('httpUploadProgress', progress => {
+    process.stdout.write(`uploading ${fileName}: ${bytesToSize(progress.loaded)}      \r`);
+  });
+}
+
 const getUploadedDataFromDisk = (releaseName, locale) => {
   const label = locale || releaseName;
   const uploaded = JSON.parse(
@@ -63,8 +69,6 @@ const tarAndUploadBundle = (
     const remoteArchiveKey = `${releaseName}/${fileName}`;
 
     mkDirByPathSync(localArchiveDir);
-
-    console.log(`archiving & uploading: ${fileName}`);
 
     const managedUpload = bundlerBucket.bucket.upload({
       Body: stream,
@@ -100,7 +104,7 @@ const tarAndUploadBundle = (
             .promise()
         )
         .then(({ ContentLength }) => {
-          console.log(`${fileName} uploaded`);
+          console.log(`\n${fileName} uploaded`);
           const metadata = { size: ContentLength, checksum };
           addUploadToDisk(releaseName, archiveLabel, metadata);
           resolve(metadata);
@@ -108,12 +112,11 @@ const tarAndUploadBundle = (
         .catch(err => console.error(err));
     });
 
-
     return tar
       .c({ gzip: true }, clipsPaths)
       .on('data', data => {
         tarSize = tarSize + data.length;
-        process.stdout.write(`${fileName} archive size: ${bytesToSize(tarSize)}      \r`);
+        process.stdout.write(`archiving ${fileName}: ${bytesToSize(tarSize)}      \r`);
         writeStream.write(data);
       })
       .on('end', () => {
