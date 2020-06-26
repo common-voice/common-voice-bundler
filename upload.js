@@ -5,6 +5,7 @@ const tar = require('tar');
 const merge = require('lodash.merge');
 const { PassThrough } = require('stream');
 const { logProgress, bytesToSize, mkDirByPathSync } = require('./helpers');
+const { saveStatsToDisk } = require('./processStats');
 const crypto = require('crypto');
 
 const SINGLE_BUNDLE = config.get('singleBundle');
@@ -71,7 +72,7 @@ const tarAndUploadBundle = (
       Key: remoteArchiveKey,
       ACL: 'public-read',
     });
-    logProgress(managedUpload);
+    logProgress(managedUpload, fileName);
 
     const localFilePath = path.join(localArchiveDir, `${fileName}`);
     const writeStream = fs.createWriteStream(localFilePath);
@@ -112,7 +113,7 @@ const tarAndUploadBundle = (
       .c({ gzip: true }, clipsPaths)
       .on('data', data => {
         tarSize = tarSize + data.length;
-        process.stdout.write(`archive size: ${bytesToSize(tarSize)}      \r`);
+        process.stdout.write(`${fileName} archive size: ${bytesToSize(tarSize)}      \r`);
         writeStream.write(data);
       })
       .on('end', () => {
@@ -150,7 +151,7 @@ const uploadDataset = (locales, bundlerBucket, releaseName) => {
       }
 
       return tarAndUploadBundle(
-        localeDir,
+        [localeDir],
         releaseName,
         locale,
         bundlerBucket

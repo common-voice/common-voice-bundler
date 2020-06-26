@@ -34,9 +34,9 @@ function countFileLines(filePath) {
   });
 }
 
-function logProgress(managedUpload) {
+function logProgress(managedUpload, fileName) {
   managedUpload.on('httpUploadProgress', progress => {
-    process.stdout.write(bytesToSize(progress.loaded) + ' upload progress\r');
+    process.stdout.write(`${fileName} ${bytesToSize(progress.loaded)} upload progress\r`);
   });
 }
 

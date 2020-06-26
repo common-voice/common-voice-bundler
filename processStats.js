@@ -120,7 +120,7 @@ const collectAndUploadStats = async (
 };
 
 const saveStatsToDisk = (releaseName, stats) => {
-  fs.writeFile(
+  fs.writeFileSync(
     `${releaseName}/stats.json`,
     JSON.stringify(merge(stats, loadStatsFromDisk(releaseName))),
     'utf8',
