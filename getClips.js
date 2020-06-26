@@ -137,7 +137,7 @@ const processAndDownloadClips = (
         }
 
         getMetadata(row).then(metadata => {
-          if (metadata.ContentLength <= 256) {
+          if (metadata <= 256) {
             if (errors.tooSmall[row.locale] === undefined) errors.tooSmall[row.locale] = [];
             errors.tooSmall[row.locale].push({
               path: row.path,
@@ -148,7 +148,6 @@ const processAndDownloadClips = (
             appendToTsv(row, newPath);
 
             if (config.get('skipDownload')) {
-              cleanUp();
               return;
             }
 
@@ -165,13 +164,13 @@ const processAndDownloadClips = (
                 updateDbStatus();
               });
           }
-
-          cleanUp();
         }).catch((e) => {
           if (errors.notFound[row.locale] === undefined) errors.notFound[row.locale] = [];
           errors.notFound[row.locale].push({
             path: row.path
           });
+        }).finally(() => {
+          cleanUp();
         });
       })
       .on('end', () => {

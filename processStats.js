@@ -119,22 +119,24 @@ const collectAndUploadStats = async (
     .promise();
 };
 
-const saveStatsToDisk = (releaseName, stats) => {
-  fs.writeFileSync(
-    `${releaseName}/stats.json`,
-    JSON.stringify(merge(stats, loadStatsFromDisk(releaseName))),
-    'utf8',
-    err => {
-      if (err) throw err;
-    }
-  );
+const saveStatsToDisk = (releaseName, newStats) => {
+  const currentStats = loadStatsFromDisk(releaseName) || {};
+  try {
+    fs.writeFileSync(
+      `${releaseName}/stats.json`,
+      JSON.stringify(merge(newStats, currentStats)),
+      'utf8');
+  } catch(e) {
+    console.log(`error writing stats file: ${e.message}`);
+  }
 };
 
 const loadStatsFromDisk = (releaseName) => {
-  fs.readFile(`${releaseName}/stats.json`, 'utf8', (err, data) => {
-    if (err) return {};
-    return JSON.parse(data);
-  });
+  try {
+    JSON.parse(fs.readFileSync(`${releaseName}/stats.json`, 'utf8'))
+  } catch(e) {
+    console.log(`error loading stats file: ${e.message}`);
+  }
 }
 
 module.exports = {
