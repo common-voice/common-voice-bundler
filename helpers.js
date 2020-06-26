@@ -3,7 +3,6 @@ const path = require('path');
 const readline = require('readline');
 const crypto = require('crypto');
 const { spawn } = require('promisify-child-process');
-const { saveStatsToDisk } = require('./processStats');
 
 const prompt = readline.createInterface({
   input: process.stdin,
@@ -72,13 +71,6 @@ function mkDirByPathSync(targetDir) {
   }, initDir);
 }
 
-function objectMap(object, mapFn) {
-  return Object.keys(object).reduce((result, key) => {
-    result[key] = mapFn(object[key]);
-    return result;
-  }, {});
-}
-
 function promptAsync(question) {
   return new Promise(resolve => {
     prompt.question(question, resolve);
@@ -91,6 +83,13 @@ async function promptLoop(prompt, options) {
 
   if (callback) await callback();
   else await promptLoop(promptLoop, options);
+}
+
+function objectMap(object, mapFn) {
+  return Object.keys(object).reduce((result, key) => {
+    result[key] = mapFn(object[key]);
+    return result;
+  }, {});
 }
 
 function unitToHours(duration, unit, sigDig) {
@@ -116,38 +115,13 @@ function hashId(id) {
   return crypto.createHash('sha512').update(id).digest('hex');
 }
 
-const sumDurations = async (releaseLocales, releaseName) => {
-  const durations = {};
-  for (const locale of releaseLocales) {
-    const duration = Number(
-      (
-        await spawn(
-          'RUST_BACKTRACE=1 mp3-duration-sum',
-          [path.join(releaseName, locale, 'clips')],
-          {
-            encoding: 'utf8',
-            shell: true,
-            maxBuffer: 1024 * 1024 * 10,
-          }
-        )
-      ).stdout
-    );
-
-    durations[locale] = { duration };
-    saveStatsToDisk(releaseName, durations);
-  }
-
-  return durations;
-};
-
 module.exports = {
   countFileLines,
   logProgress,
   mkDirByPathSync,
-  objectMap,
   promptLoop,
   unitToHours,
+  objectMap,
   hashId,
-  sumDurations,
   bytesToSize,
 };

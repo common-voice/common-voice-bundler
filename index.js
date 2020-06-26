@@ -13,7 +13,6 @@ const {
 } = require('./processCorpora');
 const { collectAndUploadStats, saveStatsToDisk } = require('./processStats');
 const { uploadDataset: _archiveAndUpload } = require('./upload');
-const { sumDurations } = require('./helpers');
 
 const archiveAndUpload = async (releaseLocales, bundlerBucket, releaseName) => {
   return config.get('skipBundling')
@@ -58,6 +57,30 @@ const checkRuleOfFive = async (db) => {
         resolve(minorityLangs);
       });
   });
+};
+
+const sumDurations = async (releaseLocales, releaseName) => {
+  const durations = {};
+  for (const locale of releaseLocales) {
+    const duration = Number(
+      (
+        await spawn(
+          'RUST_BACKTRACE=1 mp3-duration-sum',
+          [path.join(releaseName, locale, 'clips')],
+          {
+            encoding: 'utf8',
+            shell: true,
+            maxBuffer: 1024 * 1024 * 10,
+          }
+        )
+      ).stdout
+    );
+
+    durations[locale] = { duration };
+    saveStatsToDisk(releaseName, durations);
+  }
+
+  return durations;
 };
 
 const run = () => {

@@ -4,7 +4,7 @@ const readline = require('readline');
 const csv = require('fast-csv');
 const config = require('./config');
 
-const { hashId, objectMap, mkDirByPathSync, append } = require('./helpers');
+const { hashId, mkDirByPathSync, append } = require('./helpers');
 const { updateClipStats, formatFinalClipsStats } = require('./processStats');
 const errors = { tooSmall: {}, notFound: {}};
 

@@ -122,7 +122,7 @@ const collectAndUploadStats = async (
 const saveStatsToDisk = (releaseName, stats) => {
   fs.writeFile(
     `${releaseName}/stats.json`,
-    JSON.stringify(merge(...stats, loadStatsFromDisk(releaseName))),
+    JSON.stringify(merge(stats, loadStatsFromDisk(releaseName))),
     'utf8',
     err => {
       if (err) throw err;
