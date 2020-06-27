@@ -121,6 +121,7 @@ const collectAndUploadStats = async (
 
 const saveStatsToDisk = (releaseName, newStats) => {
   const currentStats = loadStatsFromDisk(releaseName) || {};
+  console.log(currentStats);
   try {
     fs.writeFileSync(
       `${releaseName}/stats.json`,

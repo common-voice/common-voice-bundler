@@ -146,22 +146,24 @@ const uploadDataset = (locales, bundlerBucket, releaseName) => {
       return { [releaseName]: metadata };
     });
   } else {
-    const bundlePromises = locales.map(locale => {
+    const bundlePromises = [];
+
+    for (const locale of locales) {
       const localeDir = path.join(releaseName, locale);
 
       if (checkIfProcessed(releaseName, locale)) {
         return getUploadedDataFromDisk(releaseName, locale);
       }
 
-      return tarAndUploadBundle(
+      bundlePromises.push(tarAndUploadBundle(
         [localeDir],
         releaseName,
         locale,
         bundlerBucket
       ).then(metadata => {
         return { [locale]: metadata };
-      });
-    });
+      }));
+    }
 
     return Promise.all(bundlePromises).then(bundleStats => {
       const mergedStats = merge(...bundleStats)
