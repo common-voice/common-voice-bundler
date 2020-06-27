@@ -37,7 +37,7 @@ const processAndDownloadClips = (
         console.log('');
         tsvStream.end();
 
-        fs.appendFile(
+        fs.write(
           path.join(__dirname, releaseName, 'errors.json'),
           JSON.stringify(errors),
           'utf8',
@@ -68,7 +68,7 @@ const processAndDownloadClips = (
 
       tsvStream.write({
         ...row,
-        sentence: row.sentence.split('\r').join(' '),
+        sentence: row.sentence.replace(/\s/gi, ' '),
         client_id: config.get('skipHashing')
           ? row.client_id
           : hashId(row.client_id),
