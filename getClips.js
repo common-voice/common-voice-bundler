@@ -72,7 +72,7 @@ const processAndDownloadClips = (
         client_id: config.get('skipHashing')
           ? row.client_id
           : hashId(row.client_id),
-        filePath,
+        path: filePath,
       }, () => {
         activeWriteStreams--;
         updateDbStatus();
