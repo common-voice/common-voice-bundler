@@ -8,6 +8,14 @@ const prompt = readline.createInterface({
   output: process.stdout,
 });
 
+const sequencePromises = (array, resultStore, promiseFn) => {
+  return promiseFn(array.shift())
+    .then((result) => {
+      resultStore.push(result);
+      return array.length == 0 ? resultStore : sequencePromises(array, resultStore, promiseFn);
+    });
+}
+
 function bytesToSize(bytes) {
   var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
   if (bytes == 0) return '0 Byte';
@@ -116,4 +124,5 @@ module.exports = {
   objectMap,
   hashId,
   bytesToSize,
+  sequencePromises
 };

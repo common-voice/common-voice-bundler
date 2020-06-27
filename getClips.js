@@ -37,7 +37,7 @@ const processAndDownloadClips = (
         console.log('');
         tsvStream.end();
 
-        fs.write(
+        fs.writeFileSync(
           path.join(__dirname, releaseName, 'errors.json'),
           JSON.stringify(errors),
           'utf8',

@@ -121,7 +121,6 @@ const collectAndUploadStats = async (
 
 const saveStatsToDisk = (releaseName, newStats) => {
   const currentStats = loadStatsFromDisk(releaseName) || {};
-  console.log(currentStats);
   try {
     fs.writeFileSync(
       `${releaseName}/stats.json`,
@@ -134,7 +133,7 @@ const saveStatsToDisk = (releaseName, newStats) => {
 
 const loadStatsFromDisk = (releaseName) => {
   try {
-    JSON.parse(fs.readFileSync(`${releaseName}/stats.json`, 'utf8'))
+    return JSON.parse(fs.readFileSync(`${releaseName}/stats.json`, 'utf8'))
   } catch(e) {
     console.log(`error loading stats file: ${e.message}`);
   }

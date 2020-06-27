@@ -4,7 +4,7 @@ const path = require('path');
 const tar = require('tar');
 const merge = require('lodash.merge');
 const { PassThrough } = require('stream');
-const { bytesToSize, mkDirByPathSync } = require('./helpers');
+const { bytesToSize, mkDirByPathSync, sequencePromises } = require('./helpers');
 const { saveStatsToDisk } = require('./processStats');
 const crypto = require('crypto');
 
@@ -33,7 +33,9 @@ const checkIfProcessed = (releaseName, locale) => {
     const data = fs.readFileSync(path.join(releaseName, 'uploaded.json'), 'utf-8')
     const label = locale || releaseName;
     const uploaded = JSON.parse(data);
-    if (uploaded[label]) console.log(`${label}.tar.gz was previously uploaded with a checksum of ${uploaded[label].checksum}`);
+    if (uploaded[label]) {
+      console.log(`${label}.tar.gz of size ${bytesToSize(uploaded[label].size)} was previously uploaded with a checksum of ${uploaded[label].checksum}`);
+    }
     return uploaded[label];
   } catch(e) {
     return false;
@@ -146,30 +148,30 @@ const uploadDataset = (locales, bundlerBucket, releaseName) => {
       return { [releaseName]: metadata };
     });
   } else {
-    const bundlePromises = [];
-
-    for (const locale of locales) {
+    const tarLocale = (locale) => {
       const localeDir = path.join(releaseName, locale);
 
       if (checkIfProcessed(releaseName, locale)) {
-        return getUploadedDataFromDisk(releaseName, locale);
+        return new Promise(resolve => resolve(getUploadedDataFromDisk(releaseName, locale)));
       }
 
-      bundlePromises.push(tarAndUploadBundle(
+      return tarAndUploadBundle(
         [localeDir],
         releaseName,
         locale,
         bundlerBucket
       ).then(metadata => {
-        return { [locale]: metadata };
-      }));
+        return({ [locale]: metadata });
+      });
     }
 
-    return Promise.all(bundlePromises).then(bundleStats => {
-      const mergedStats = merge(...bundleStats)
-      saveStatsToDisk(releaseName, mergedStats);
-      return mergedStats;
+    return sequencePromises(locales, [], tarLocale)
+      .then(stats => {
+        const mergedStats = merge(...stats)
+        saveStatsToDisk(releaseName, mergedStats);
+        return mergedStats;
     });
+
   }
 };
 
