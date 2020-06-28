@@ -32,19 +32,14 @@ const formatFinalClipsStats = (releaseName, localeSplits) => {
     localeSplits,
     ({ clips, splits, usersSet }) => ({
       clips,
-      splits: objectMap(splits, (values, key) => {
-        const label = key ? key : '';
-        return {
-          [label]: objectMap(values, value =>
-            Number((value / clips).toFixed(2))
-          ),
-        };
-      }),
+      splits: objectMap(splits, values =>
+        objectMap(values, value => Number((value / clips).toFixed(2)))
+      ),
       users: usersSet.size,
     })
   );
 
-  saveStatsToDisk(releaseName, processedStats);
+  saveStatsToDisk(releaseName, { locales: processedStats });
   return processedStats;
 };
 

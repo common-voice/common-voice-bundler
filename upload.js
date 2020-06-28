@@ -77,6 +77,8 @@ const tarAndUploadBundle = (
       Bucket: bundlerBucket.name,
       Key: remoteArchiveKey,
       ACL: 'public-read',
+    }, {
+      partSize: 25 * 1024 * 1024
     });
     logProgress(managedUpload, fileName);
 

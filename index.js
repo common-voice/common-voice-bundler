@@ -73,7 +73,7 @@ const sumDurations = async (releaseLocales, releaseName) => {
     );
 
     durations[locale] = { duration };
-    saveStatsToDisk(releaseName, durations);
+    saveStatsToDisk(releaseName, { locales: durations });
   }
 
   return durations;
