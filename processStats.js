@@ -39,7 +39,7 @@ const formatFinalClipsStats = (releaseName, localeSplits) => {
     })
   );
 
-  saveStatsToDisk(releaseName, processedStats);
+  saveStatsToDisk(releaseName, { locales: processedStats });
   return processedStats;
 };
 
