@@ -44,7 +44,7 @@ const countBuckets = async (releaseLocales, releaseName) => {
       ),
     };
 
-    saveStatsToDisk(releaseName, { locales: buckets });
+    saveStatsToDisk(releaseName, buckets);
   }
 
   return buckets;
