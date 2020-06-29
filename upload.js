@@ -170,7 +170,7 @@ const uploadDataset = (locales, bundlerBucket, releaseName) => {
     return sequencePromises(locales, [], tarLocale)
       .then(stats => {
         const mergedStats = merge(...stats)
-        saveStatsToDisk(releaseName, mergedStats);
+        saveStatsToDisk(releaseName, { locales: mergedStats });
         return mergedStats;
     });
 

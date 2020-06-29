@@ -50,7 +50,7 @@ const getReportedSentences = (db, localeDirs, releaseName) => {
           };
         });
 
-        saveStatsToDisk(releaseName, reportedSentences)
+        saveStatsToDisk(releaseName, { locales: reportedSentences });
         resolve(reportedSentences);
       });
   });

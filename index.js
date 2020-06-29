@@ -81,7 +81,6 @@ const sumDurations = async (releaseLocales, releaseName) => {
 
 const run = () => {
   const RELEASE_NAME = config.get('releaseName');
-
   const { db, clipBucket, bundlerBucket } = require('./init').initialize();
 
   db.connect();
@@ -91,7 +90,7 @@ const run = () => {
       processAndDownloadClips(db, clipBucket, RELEASE_NAME, minorityLangs)
     )
     .then(stats => {
-      releaseLocales = Object.keys(stats);
+      const releaseLocales = Object.keys(stats);
 
       return Promise.all([
         stats,
@@ -108,7 +107,6 @@ const run = () => {
     .then(mergedStats => {
       return collectAndUploadStats(
         mergedStats,
-        releaseLocales,
         bundlerBucket,
         RELEASE_NAME
       );

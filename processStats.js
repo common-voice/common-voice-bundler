@@ -43,11 +43,11 @@ const formatFinalClipsStats = (releaseName, localeSplits) => {
   return processedStats;
 };
 
-const calculateAggregateStats = (stats, releaseLocales) => {
+const calculateAggregateStats = (stats) => {
   let totalDuration = 0;
   let totalValidDurationSecs = 0;
 
-  for (const locale of releaseLocales) {
+  for (const locale of stats.locales) {
     const localeStats = stats.locales[locale];
     const validClips = localeStats.buckets ? localeStats.buckets.validated : 0;
 
@@ -76,7 +76,6 @@ const calculateAggregateStats = (stats, releaseLocales) => {
 
 const collectAndUploadStats = async (
   stats,
-  releaseLocales,
   bundlerBucket,
   releaseName
 ) => {
@@ -89,16 +88,14 @@ const collectAndUploadStats = async (
         bundleURL: `https://${bundlerBucket.name}.s3.amazonaws.com/${releaseName}/${releaseName}.tar.gz`,
         locales: { ...locales, [releaseName]: null },
         overall: locales[releaseName],
-      },
-      releaseLocales
+      }
     );
   } else {
     statsJson = calculateAggregateStats(
       {
         bundleURLTemplate: `https://${bundlerBucket.name}.s3.amazonaws.com/${releaseName}/{locale}.tar.gz`,
         locales,
-      },
-      releaseLocales
+      }
     );
   }
 
