@@ -57,6 +57,7 @@ const checkRuleOfFive = async (db) => {
 
 const sumDurations = async (releaseLocales, releaseName) => {
   const durations = {};
+
   for (const locale of releaseLocales) {
     const duration = Number(
       (

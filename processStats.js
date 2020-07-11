@@ -47,7 +47,7 @@ const calculateAggregateStats = (stats) => {
   let totalDuration = 0;
   let totalValidDurationSecs = 0;
 
-  for (const locale of stats.locales) {
+  for (const locale in stats.locales) {
     const localeStats = stats.locales[locale];
     const validClips = localeStats.buckets ? localeStats.buckets.validated : 0;
 
@@ -116,7 +116,7 @@ const saveStatsToDisk = (releaseName, newStats) => {
   try {
     fs.writeFileSync(
       `${releaseName}/stats.json`,
-      JSON.stringify(merge(newStats, currentStats)),
+      JSON.stringify(merge({...newStats}, {...currentStats})),
       'utf8');
   } catch(e) {
     console.log(`error writing stats file: ${e.message}`);
