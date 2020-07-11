@@ -122,8 +122,6 @@ const processAndDownloadClips = (
           row.age = '';
         }
 
-        stats = updateClipStats(stats, row);
-
         const clipsDir = path.join(releaseName, row.locale, 'clips');
         const newPath = `common_voice_${row.locale}_${row.id}.mp3`;
         const soundFilePath = path.join(clipsDir, newPath);
@@ -132,6 +130,7 @@ const processAndDownloadClips = (
           fs.existsSync(soundFilePath) &&
           fs.statSync(soundFilePath)['size'] > 0
         ) {
+          stats = updateClipStats(stats, row);
           appendToTsv(row, newPath)
           return;
         }
@@ -145,6 +144,7 @@ const processAndDownloadClips = (
             });
             return;
           } else {
+            stats = updateClipStats(stats, row);
             appendToTsv(row, newPath);
 
             if (config.get('skipDownload')) {
