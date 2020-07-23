@@ -2,12 +2,19 @@ const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
 const crypto = require('crypto');
-const { spawn } = require('promisify-child-process');
 
 const prompt = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
 });
+
+const sequencePromises = (array, resultStore, promiseFn) => {
+  return promiseFn(array.shift())
+    .then((result) => {
+      resultStore.push(result);
+      return array.length == 0 ? resultStore : sequencePromises(array, resultStore, promiseFn);
+    });
+}
 
 function bytesToSize(bytes) {
   var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
@@ -32,13 +39,6 @@ function countFileLines(filePath) {
         resolve(lineCount);
       })
       .on('error', reject);
-  });
-}
-
-function logProgress(managedUpload) {
-  managedUpload.on('httpUploadProgress', progress => {
-    readline.cursorTo(process.stdout, 0);
-    process.stdout.write(bytesToSize(progress.loaded) + ' upload progress');
   });
 }
 
@@ -72,13 +72,6 @@ function mkDirByPathSync(targetDir) {
   }, initDir);
 }
 
-function objectMap(object, mapFn) {
-  return Object.keys(object).reduce((result, key) => {
-    result[key] = mapFn(object[key]);
-    return result;
-  }, {});
-}
-
 function promptAsync(question) {
   return new Promise(resolve => {
     prompt.question(question, resolve);
@@ -93,11 +86,18 @@ async function promptLoop(prompt, options) {
   else await promptLoop(promptLoop, options);
 }
 
+function objectMap(object, mapFn) {
+  return Object.keys(object).reduce((result, key) => {
+    result[key] = mapFn(object[key]);
+    return result;
+  }, {});
+}
+
 function unitToHours(duration, unit, sigDig) {
   let perHr = 1;
   const sigDigMultiplier = Math.pow(10, sigDig);
 
-  switch(unit) {
+  switch (unit) {
     case 'ms':
       perHr = 60 * 60 * 1000;
       break;
@@ -112,46 +112,17 @@ function unitToHours(duration, unit, sigDig) {
   return Math.floor((duration / perHr) * sigDigMultiplier) / sigDigMultiplier;
 }
 
-function getLocaleDirs(outDir) {
-  return fs
-    .readdirSync(outDir)
-    .filter(f => fs.statSync(path.join(outDir, f)).isDirectory());
-}
-
 function hashId(id) {
-  return crypto
-    .createHash('sha512')
-    .update(id)
-    .digest('hex');
+  return crypto.createHash('sha512').update(id).digest('hex');
 }
-
-const sumDurations = async (localeDirs, outDir) => {
-  const durations = {};
-  for (const locale of localeDirs) {
-    const duration = Number((await spawn(
-      'mp3-duration-sum',
-      [path.join(outDir, locale, 'clips')],
-      {
-        encoding: 'utf8',
-        shell: true,
-        maxBuffer: 1024 * 1024 * 10,
-      }
-    )).stdout);
-
-    durations[locale] = { duration };
-  }
-  return durations;
-};
-
 
 module.exports = {
   countFileLines,
-  logProgress,
   mkDirByPathSync,
-  objectMap,
   promptLoop,
   unitToHours,
-  getLocaleDirs,
+  objectMap,
   hashId,
-  sumDurations
+  bytesToSize,
+  sequencePromises
 };

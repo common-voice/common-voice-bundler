@@ -50,7 +50,7 @@ function initS3Bucket(bucketOpts) {
     region,
   });
 
-  bucket.headBucket({ Bucket: name }, (err) => {
+  bucket.headBucket({ Bucket: name }, err => {
     if (err) {
       throw new Error(
         `An error occurred trying to connect to S3 instance ${name}`
@@ -58,15 +58,15 @@ function initS3Bucket(bucketOpts) {
     }
   });
 
-  return bucket;
+  return { name, bucket };
 }
 
 function initialize() {
-  const OUT_DIR = config.get('localOutDir');
+  const RELEASE_NAME = config.get('releaseName');
   const QUERY_FILE = path.join(__dirname, 'queries', config.get('queryFile'));
 
   try {
-    verifyFiles(QUERY_FILE, OUT_DIR);
+    verifyFiles(QUERY_FILE, RELEASE_NAME);
 
     return {
       db: connectToDb(),
@@ -80,5 +80,5 @@ function initialize() {
 }
 
 module.exports = {
-  initialize
+  initialize,
 };

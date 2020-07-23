@@ -4,90 +4,102 @@ const config = convict({
   db: {
     host: {
       format: String,
-      default: 'localhost'
+      default: 'localhost',
     },
     user: {
       format: String,
-      default: 'root'
+      default: 'root',
     },
     password: {
       format: String,
       sensitive: true,
-      default: 'root'
+      default: 'root',
     },
     database: {
       format: String,
-      default: 'voice'
-    }
+      default: 'voice',
+    },
   },
   clipBucket: {
     name: {
       format: String,
-      default: ''
+      default: '',
     },
     region: {
       format: String,
-      default: 'us-west-2'
+      default: 'us-west-2',
     },
     accessKeyId: {
       format: String,
       sensitive: true,
-      default: ''
+      default: '',
     },
     secretAccessKey: {
       format: String,
       sensitive: true,
-      default: ''
-    }
+      default: '',
+    },
   },
   outBucket: {
     name: {
       format: String,
-      default: ''
+      default: '',
     },
     accessKeyId: {
       format: String,
       sensitive: true,
-      default: ''
+      default: '',
     },
     secretAccessKey: {
       format: String,
       sensitive: true,
-      default: ''
+      default: '',
     },
     region: {
       format: String,
-      default: 'us-west-2'
-    }
+      default: 'us-west-2',
+    },
   },
   releaseName: {
     format: String,
-    default: 'cv-corpus-1'
+    default: 'cv-corpus-1',
   },
   skipBundling: {
     format: Boolean,
-    default: false
+    default: false,
   },
   skipCorpora: {
     format: Boolean,
-    default: false
+    default: false,
   },
   skipHashing: {
     format: Boolean,
-    default: false
+    default: false,
   },
-  localOutDir: {
-    format: String,
-    default: 'out'
+  skipDownload: {
+    format: Boolean,
+    default: false,
+  },
+  skipMinorityCheck: {
+    format: Boolean,
+    default: false,
+  },
+  skipReportedSentences: {
+    format: Boolean,
+    default: false,
+  },
+  startFromCorpora: {
+    format: Boolean,
+    default: false
   },
   queryFile: {
     format: String,
-    default: 'bundleAll.sql'
+    default: 'bundleAll.sql',
   },
-  customSet: {
-    format: String,
-    default: ''
-  }
+  singleBundle: {
+    format: Boolean,
+    default: false,
+  },
 });
 
 config.loadFile('./config.json');
