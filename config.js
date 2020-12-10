@@ -60,6 +60,10 @@ const config = convict({
       default: 'us-west-2',
     },
   },
+  cutoffTime: {
+    format: String,
+    default: '2030-01-01 00:00:00'
+  },
   releaseName: {
     format: String,
     default: 'cv-corpus-1',

@@ -112,7 +112,7 @@ const processAndDownloadClips = (
         });
     };
 
-    db.query(fs.readFileSync(QUERY_FILE, 'utf-8'))
+    db.query(fs.readFileSync(QUERY_FILE, 'utf-8'), [config.get('cutoffTime')])
       .on('result', row => {
         rowIndex++;
         renderProgress(rowIndex, clipSavedIndex);
