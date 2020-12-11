@@ -4,6 +4,41 @@ const config = require('./config');
 const { objectMap, unitToHours } = require('./helpers');
 
 /**
+ * Helper function to load current stats from disk
+ *
+ * @param {string} releaseName  name of current release
+ *
+ * @return {Object} stats object read from disk
+ */
+const loadStatsFromDisk = (releaseName) => {
+  try {
+    return JSON.parse(fs.readFileSync(`${releaseName}/stats.json`, 'utf8'));
+  } catch (e) {
+    console.log(`error loading stats file: ${e.message}`);
+    return {};
+  }
+};
+
+/**
+ * Helper function to load current stats from disk, update, and save back to disk
+ *
+ * @param {string} releaseName  name of current release
+ * @param {Object} newStats     ongoing stats object
+ */
+const saveStatsToDisk = (releaseName, newStats) => {
+  const currentStats = loadStatsFromDisk(releaseName) || {};
+  try {
+    fs.writeFileSync(
+      `${releaseName}/stats.json`,
+      JSON.stringify(merge({ ...newStats }, { ...currentStats })),
+      'utf8',
+    );
+  } catch (e) {
+    console.log(`error writing stats file: ${e.message}`);
+  }
+};
+
+/**
  * Helper function to format a row of query data into stats object
  *
  * @param {Object} stats     current stats object
@@ -13,9 +48,8 @@ const { objectMap, unitToHours } = require('./helpers');
  */
 const updateClipStats = (stats, row) => {
   // Initialize locale in stats object if it doesn't exist
-  const localeStats =
-    stats[row.locale] ||
-    (stats[row.locale] = {
+  const localeStats = stats[row.locale]
+    || (stats[row.locale] = {
       clips: 0,
       splits: { accent: {}, age: {}, gender: {} },
       usersSet: new Set(),
@@ -27,7 +61,7 @@ const updateClipStats = (stats, row) => {
 
   // Update gender/age/accent counts
   const { splits } = localeStats;
-  for (const key of Object.keys(splits).filter((key) => key != 'filter')) {
+  for (const key of Object.keys(splits).filter((key) => key !== 'filter')) {
     const value = row[key] ? row[key] : '';
     splits[key][value] = (splits[key][value] || 0) + 1;
   }
@@ -52,19 +86,18 @@ const formatFinalClipsStats = (releaseName, localeSplits) => {
       clips,
 
       // convert demographic count sinto demographic ratios
-      splits: objectMap(splits, (values) =>
-        objectMap(values, (value) => Number((value / clips).toFixed(2)))
-      ),
+      splits: objectMap(splits, (values) => objectMap(
+        values, (value) => Number((value / clips).toFixed(2)),
+      )),
 
       // convert userSet into user count
       users: usersSet.size,
-    })
+    }),
   );
 
   saveStatsToDisk(releaseName, { locales: processedStats });
   return processedStats;
 };
-
 
 /**
  * Helper function to generate aggregate stats for final stats object
@@ -81,11 +114,9 @@ const calculateAggregateStats = (stats) => {
     const localeStats = stats.locales[locale];
     const validClips = localeStats.buckets ? localeStats.buckets.validated : 0;
 
-    localeStats.avgDurationSecs =
-      Math.round(localeStats.duration / localeStats.clips) / 1000;
-    localeStats.validDurationSecs =
-      Math.round((localeStats.duration / localeStats.clips) * validClips) /
-      1000;
+    localeStats.avgDurationSecs = Math.round(localeStats.duration / localeStats.clips) / 1000;
+    localeStats.validDurationSecs = Math.round((localeStats.duration / localeStats.clips) * validClips)
+      / 1000;
 
     localeStats.totalHrs = unitToHours(localeStats.duration, 'ms', 2);
     localeStats.validHrs = unitToHours(localeStats.validDurationSecs, 's', 2);
@@ -103,7 +134,6 @@ const calculateAggregateStats = (stats) => {
 
   return stats;
 };
-
 
 /**
  * Helper function to merge stats objects from all stages of bundling and upload
@@ -142,41 +172,6 @@ const collectAndUploadStats = async (stats, bundlerBucket, releaseName) => {
       ACL: 'public-read',
     })
     .promise();
-};
-
-
-/**
- * Helper function to load current stats from disk, update, and save back to disk
- *
- * @param {string} releaseName  name of current release
- * @param {Object} newStats     ongoing stats object
- */
-const saveStatsToDisk = (releaseName, newStats) => {
-  const currentStats = loadStatsFromDisk(releaseName) || {};
-  try {
-    fs.writeFileSync(
-      `${releaseName}/stats.json`,
-      JSON.stringify(merge({ ...newStats }, { ...currentStats })),
-      'utf8'
-    );
-  } catch (e) {
-    console.log(`error writing stats file: ${e.message}`);
-  }
-};
-
-/**
- * Helper function to load current stats from disk
- *
- * @param {string} releaseName  name of current release
- *
- * @return {Object} stats object read from disk
- */
-const loadStatsFromDisk = (releaseName) => {
-  try {
-    return JSON.parse(fs.readFileSync(`${releaseName}/stats.json`, 'utf8'));
-  } catch (e) {
-    console.log(`error loading stats file: ${e.message}`);
-  }
 };
 
 module.exports = {

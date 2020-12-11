@@ -30,7 +30,9 @@ function verifyFiles(queryFile, clipsDir) {
  * @return {Object}   mysql db connection
  */
 function connectToDb() {
-  const { host, user, password, database } = config.get('db');
+  const {
+    host, user, password, database,
+  } = config.get('db');
 
   try {
     const db = mysql.createConnection({
@@ -43,7 +45,7 @@ function connectToDb() {
     return db;
   } catch (e) {
     throw new Error(
-      `An error occurred while trying to connect to the database: ${e.message}`
+      `An error occurred while trying to connect to the database: ${e.message}`,
     );
   }
 }
@@ -58,16 +60,18 @@ function connectToDb() {
  * @return {Object}  object with name of bucket and bucket connection itself
  */
 function initS3Bucket(bucketOpts) {
-  const { accessKeyId, secretAccessKey, name, region } = bucketOpts;
+  const {
+    accessKeyId, secretAccessKey, name, region,
+  } = bucketOpts;
 
   const bucket = new S3({
     ...(accessKeyId
       ? {
-          credentials: {
-            accessKeyId,
-            secretAccessKey,
-          },
-        }
+        credentials: {
+          accessKeyId,
+          secretAccessKey,
+        },
+      }
       : {}),
     region,
   });
@@ -75,7 +79,7 @@ function initS3Bucket(bucketOpts) {
   bucket.headBucket({ Bucket: name }, (err) => {
     if (err) {
       throw new Error(
-        `An error occurred trying to connect to S3 instance ${name}`
+        `An error occurred trying to connect to S3 instance ${name}`,
       );
     }
   });
@@ -109,6 +113,7 @@ function initialize() {
   } catch (e) {
     console.error(e);
     process.exit(1);
+    return {};
   }
 }
 

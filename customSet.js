@@ -34,20 +34,16 @@ const zipAndUpload = async () => {
 
   return managedUpload
     .promise()
-    .then(() =>
-      bundlerBucket.bucket
-        .headObject({ Bucket: bundlerBucket.name, Key: archiveName })
-        .promise()
-    )
+    .then(() => bundlerBucket.bucket
+      .headObject({ Bucket: bundlerBucket.name, Key: archiveName })
+      .promise())
     .then(({ ContentLength }) => {
       console.log('');
       return ContentLength;
     })
-    .catch(err => console.error(err));
+    .catch((err) => console.error(err));
 };
 
 processAndDownloadClips(db, clipBucket)
-  .then(stats =>
-    Promise.all([stats, sumDurations(getLocaleDirs()), zipAndUpload()])
-  )
-  .catch(e => console.error(e));
+  .then((stats) => Promise.all([stats, sumDurations(getLocaleDirs()), zipAndUpload()]))
+  .catch((e) => console.error(e));

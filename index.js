@@ -2,8 +2,8 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const merge = require('lodash.merge');
-const config = require('./config');
 const { spawn } = require('promisify-child-process');
+const config = require('./config');
 const {
   processAndDownloadClips: _processAndDownloadClips,
 } = require('./getClips');
@@ -14,9 +14,10 @@ const {
   countBuckets,
   processCorpora: _processCorpora,
 } = require('./processCorpora');
-const { collectAndUploadStats, saveStatsToDisk } = require('./processStats');
+const { collectAndUploadStats, saveStatsToDisk, loadStatsFromDisk } = require('./processStats');
 const { uploadDataset: _archiveAndUpload } = require('./upload');
 
+const { dbGlobal, clipBucketGlobal, bundlerBucketGlobal } = require('./init').initialize();
 /**
  * Check configuration for whether the main function should skip archiving
  * and uploading bundles
@@ -27,11 +28,9 @@ const { uploadDataset: _archiveAndUpload } = require('./upload');
  *
  * @return {Promise.resolve} either null or updated stats object
  */
-const archiveAndUpload = async (releaseLocales, bundlerBucket, releaseName) => {
-  return config.get('skipBundling')
-    ? Promise.resolve()
-    : _archiveAndUpload(releaseLocales, bundlerBucket, releaseName);
-};
+const archiveAndUpload = async (releaseLocales, bundlerBucket, releaseName) => (config.get('skipBundling')
+  ? Promise.resolve()
+  : _archiveAndUpload(releaseLocales, bundlerBucket, releaseName));
 
 /**
  * Check configuration for whether the main function should skip downloading
@@ -43,11 +42,9 @@ const archiveAndUpload = async (releaseLocales, bundlerBucket, releaseName) => {
  *
  * @return {Promise.resolve} either null or updated stats object
  */
-const getReportedSentences = async (db, releaseLocales, releaseName) => {
-  return config.get('skipReportedSentences')
-    ? Promise.resolve()
-    : _getReportedSentences(db, releaseLocales, releaseName);
-};
+const getReportedSentences = async (db, releaseLocales, releaseName) => (config.get('skipReportedSentences')
+  ? Promise.resolve()
+  : _getReportedSentences(db, releaseLocales, releaseName));
 
 /**
  * Check configuration for whether the main function should skip downloading
@@ -64,12 +61,10 @@ const processAndDownloadClips = async (
   db,
   clipBucket,
   releaseName,
-  minorityLangs
-) => {
-  return config.get('startFromCorpora')
-    ? Promise.resolve(loadStatsFromDisk(releaseName))
-    : _processAndDownloadClips(db, clipBucket, releaseName, minorityLangs);
-};
+  minorityLangs,
+) => (config.get('startFromCorpora')
+  ? Promise.resolve(loadStatsFromDisk(releaseName))
+  : _processAndDownloadClips(db, clipBucket, releaseName, minorityLangs));
 
 /**
  * Check configuration for whether the main function should wait
@@ -79,11 +74,9 @@ const processAndDownloadClips = async (
  *
  * @return {Promise.resolve} null
  */
-const processCorpora = async (releaseName) => {
-  return config.get('skipCorpora')
-    ? Promise.resolve()
-    : _processCorpora(releaseName);
-};
+const processCorpora = async (releaseName) => (config.get('skipCorpora')
+  ? Promise.resolve()
+  : _processCorpora(releaseName));
 
 /**
  * Generate list of languages with fewer than 5 unique speakers who should
@@ -107,8 +100,8 @@ const checkRuleOfFive = async (db) => {
       .on('end', () => {
         console.log(
           `Languages with fewer than 5 unique speakers: ${minorityLangs.join(
-            ', '
-          )}`
+            ', ',
+          )}`,
         );
         resolve(minorityLangs);
       });
@@ -137,9 +130,9 @@ const sumDurations = async (releaseLocales, releaseName) => {
             encoding: 'utf8',
             shell: true,
             maxBuffer: 1024 * 1024 * 10,
-          }
+          },
         )
-      ).stdout
+      ).stdout,
     );
 
     durations[locale] = { duration };
@@ -156,19 +149,17 @@ const sumDurations = async (releaseLocales, releaseName) => {
  * for CorporaCreation, and zips and re-uploads clips based on
  * configs
  */
-const run = () => {
+const run = (db, clipBucket, bundlerBucket) => {
   const RELEASE_NAME = config.get('releaseName');
-  const { db, clipBucket, bundlerBucket } = require('./init').initialize();
 
   db.connect();
 
   // Check for minorit languages
   checkRuleOfFive(db)
-    .then((minorityLangs) =>
-      // Download clips, create TSV object
-      processAndDownloadClips(db, clipBucket, RELEASE_NAME, minorityLangs)
-    )
-    .then((stats) => {
+  // Download clips, create TSV object
+    .then((minorityLangs) => processAndDownloadClips(
+      db, clipBucket, RELEASE_NAME, minorityLangs,
+    )).then((stats) => {
       const releaseLocales = Object.keys(stats);
 
       // wait for all processes to finish
@@ -176,19 +167,17 @@ const run = () => {
         stats,
         sumDurations(releaseLocales, RELEASE_NAME),
         getReportedSentences(db, releaseLocales, RELEASE_NAME),
-        processCorpora(RELEASE_NAME).then(async () => {
+        processCorpora(RELEASE_NAME).then(async () => merge(
           // merge test/dev/train bucket stats with archive and upload stats
-          return merge(
-            await countBuckets(releaseLocales, RELEASE_NAME),
-            await archiveAndUpload(releaseLocales, bundlerBucket, RELEASE_NAME)
-          );
-        }),
+          await countBuckets(releaseLocales, RELEASE_NAME),
+          await archiveAndUpload(releaseLocales, bundlerBucket, RELEASE_NAME),
+        )),
       ]);
     })
-    .then((mergedStats) => {
+    .then((mergedStats) => collectAndUploadStats(
       // process and upload stats file
-      return collectAndUploadStats(mergedStats, bundlerBucket, RELEASE_NAME);
-    })
+      mergedStats, bundlerBucket, RELEASE_NAME,
+    ))
     .catch((e) => console.error(e))
     .finally(() => {
       // close db
@@ -197,4 +186,4 @@ const run = () => {
     });
 };
 
-run();
+run(dbGlobal, clipBucketGlobal, bundlerBucketGlobal);

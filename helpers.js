@@ -17,9 +17,9 @@ const prompt = readline.createInterface({
  * @param {function} promiseFn  promise function
  */
 const sequencePromises = (array, resultStore, promiseFn) => {
-  return promiseFn(array.shift()).then((result) => {
+  promiseFn(array.shift()).then((result) => {
     resultStore.push(result);
-    return array.length == 0
+    return array.length === 0
       ? resultStore
       : sequencePromises(array, resultStore, promiseFn);
   });
@@ -33,10 +33,10 @@ const sequencePromises = (array, resultStore, promiseFn) => {
  * @return {string} human readable file size to 2 decimal points
  */
 function bytesToSize(bytes) {
-  var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-  if (bytes == 0) return '0 Byte';
-  var i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
-  return Math.round(bytes / Math.pow(1024, i), 2) + ' ' + sizes[i];
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+  if (bytes === 0) return '0 Byte';
+  const i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)), 10);
+  return `${Math.round(bytes / (1024 ** i), 2)} ${sizes[i]}`;
 }
 
 /**
@@ -73,7 +73,7 @@ function countFileLines(filePath) {
  * @return {string} absolute value of final targetDir
  */
 function mkDirByPathSync(targetDir) {
-  const sep = path.sep;
+  const { sep } = path;
   const initDir = path.isAbsolute(targetDir) ? sep : '';
 
   return targetDir.split(sep).reduce((parentDir, childDir) => {
@@ -118,17 +118,17 @@ function promptAsync(question) {
 /**
  * Continue prompting for user input until valid option is provided
  *
- * @param {string} prompt       question to show user
+ * @param {string} promptInstance       question to show user
  * @param {Object} options      key: correct answer; value: callback function
  *
  * @return {function} call the callback function
  */
-async function promptLoop(prompt, options) {
+async function promptLoop(promptInstance, options) {
   const answer = await promptAsync(prompt);
   const callback = options[answer.toLowerCase()];
 
   if (callback) await callback();
-  else await promptLoop(promptLoop, options);
+  else await promptLoop(promptInstance, options);
 }
 
 /**
@@ -141,8 +141,9 @@ async function promptLoop(prompt, options) {
  */
 function objectMap(object, mapFn) {
   return Object.keys(object).reduce((result, key) => {
-    result[key] = mapFn(object[key]);
-    return result;
+    const newResult = result;
+    newResult[key] = mapFn(object[key]);
+    return newResult;
   }, {});
 }
 
@@ -157,7 +158,7 @@ function objectMap(object, mapFn) {
  */
 function unitToHours(duration, unit, sigDig) {
   let perHr = 1;
-  const sigDigMultiplier = Math.pow(10, sigDig);
+  const sigDigMultiplier = 10 ** sigDig;
 
   switch (unit) {
     case 'ms':
@@ -168,6 +169,9 @@ function unitToHours(duration, unit, sigDig) {
       break;
     case 'min':
       perHr = 60;
+      break;
+    default:
+      perHr = 1;
       break;
   }
 

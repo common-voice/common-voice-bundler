@@ -10,7 +10,7 @@ const { saveStatsToDisk } = require('./processStats');
  *
  * @param {string} releaseName   name of current release
  */
-const processCorpora = async releaseName => {
+const processCorpora = async (releaseName) => {
   const releaseDir = path.join(__dirname, releaseName);
   const tsvPath = path.join(releaseDir, 'clips.tsv');
 
@@ -20,7 +20,7 @@ When that has completed, return to this shell and type 'corpora-complete' and hi
 
   await promptLoop(query, {
     'corpora-complete': () => {
-      return;
+
     },
   });
 };
@@ -41,12 +41,12 @@ const countBuckets = async (releaseLocales, releaseName) => {
 
     // Count number of lines in each TSV file for each locale
     const localeBuckets = (await fs.readdirSync(localePath))
-      .filter(file => file.endsWith('.tsv'))
-      .map(async fileName => [
+      .filter((file) => file.endsWith('.tsv'))
+      .map(async (fileName) => [
         fileName,
         Math.max(
           (await countFileLines(path.join(localePath, fileName))) - 1,
-          0
+          0,
         ),
       ]);
 
@@ -54,10 +54,11 @@ const countBuckets = async (releaseLocales, releaseName) => {
     buckets[locale] = {
       buckets: (await Promise.all(localeBuckets)).reduce(
         (obj, [key, count]) => {
-          obj[key.split('.tsv')[0]] = count;
-          return obj;
+          const newObj = obj;
+          newObj[key.split('.tsv')[0]] = count;
+          return newObj;
         },
-        {}
+        {},
       ),
     };
 

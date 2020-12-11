@@ -1,11 +1,11 @@
 const fs = require('fs');
 const path = require('path');
-const readline = require('readline');
 const csv = require('fast-csv');
 const config = require('./config');
 
-const { hashId, mkDirByPathSync, append } = require('./helpers');
+const { hashId, mkDirByPathSync } = require('./helpers');
 const { updateClipStats, formatFinalClipsStats } = require('./processStats');
+
 const errors = { tooSmall: {}, notFound: {} };
 const TSV_OPTIONS = {
   headers: true,
@@ -27,7 +27,7 @@ const processAndDownloadClips = (
   db,
   clipBucket,
   releaseName,
-  minorityLangs
+  minorityLangs,
 ) => {
   const queryFile = path.join(__dirname, 'queries', config.get('queryFile'));
 
@@ -50,9 +50,9 @@ const processAndDownloadClips = (
     // has been completed
     const cleanUp = () => {
       if (
-        readAllRows &&
-        activeBucketConnections == 0 &&
-        activeWriteStreams == 0
+        readAllRows
+        && activeBucketConnections === 0
+        && activeWriteStreams === 0
       ) {
         console.log('');
         tsvStream.end();
@@ -62,9 +62,9 @@ const processAndDownloadClips = (
           path.join(__dirname, releaseName, 'errors.json'),
           JSON.stringify(errors),
           'utf8',
-          function (err) {
+          (err) => {
             if (err) throw err;
-          }
+          },
         );
 
         // format stats and return to main run function
@@ -103,25 +103,25 @@ const processAndDownloadClips = (
         () => {
           activeWriteStreams--;
           updateDbStatus();
-        }
+        },
       );
     };
 
     // Helper function to render current progress
     const renderProgress = () => {
       process.stdout.write(
-        `${rowIndex} rows processed, ${clipSavedIndex} downloaded\r`
+        `${rowIndex} rows processed, ${clipSavedIndex} downloaded\r`,
       );
     };
 
     // Helper function to download a file
-    const downloadClipFile = (path) => {
+    const downloadClipFile = (clipPath) => {
       activeBucketConnections++;
       updateDbStatus();
 
       return clipBucket.bucket.getObject({
         Bucket: clipBucket.name,
-        Key: path,
+        Key: clipPath,
       });
     };
 
@@ -143,10 +143,10 @@ const processAndDownloadClips = (
         });
     };
 
-
     // Main query for bundling
     db.query(fs.readFileSync(queryFile, 'utf-8'), [config.get('cutoffTime')])
-      .on('result', (row) => {
+      .on('result', (dbRow) => {
+        const row = dbRow;
         rowIndex++;
         renderProgress(rowIndex, clipSavedIndex);
 
@@ -162,8 +162,8 @@ const processAndDownloadClips = (
 
         // If audio file has previously been downloaded, update stats/TSV immediately
         if (
-          fs.existsSync(soundFilePath) &&
-          fs.statSync(soundFilePath)['size'] > 0
+          fs.existsSync(soundFilePath)
+          && fs.statSync(soundFilePath).size > 0
         ) {
           stats = updateClipStats(stats, row);
           appendToTsv(row, newPath);
@@ -183,7 +183,6 @@ const processAndDownloadClips = (
                 path: row.path,
                 size: metadata.ContentLength,
               });
-              return;
             } else {
               // If valid clip, update clipStats and add to TSV
               stats = updateClipStats(stats, row);
@@ -209,7 +208,7 @@ const processAndDownloadClips = (
                 });
             }
           })
-          .catch((e) => {
+          .catch(() => {
             // If file does not exist, append to error object
             if (errors.notFound[row.locale] === undefined) {
               errors.notFound[row.locale] = [];

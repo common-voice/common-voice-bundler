@@ -17,7 +17,7 @@ const getReportedSentences = (db, localeDirs, releaseName) => {
   const QUERY_FILE = path.join(
     __dirname,
     'queries',
-    'getReportedSentences.sql'
+    'getReportedSentences.sql',
   );
 
   const TSV_OPTIONS = {
@@ -26,12 +26,11 @@ const getReportedSentences = (db, localeDirs, releaseName) => {
     quote: false,
   };
 
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     const reportedSentences = {};
 
     db.query(fs.readFileSync(QUERY_FILE, 'utf-8'))
-      .on('result', row => {
-
+      .on('result', (row) => {
         // if locale is not included in current set of releases, skip
         if (!localeDirs.includes(row.locale)) return;
 
@@ -47,14 +46,13 @@ const getReportedSentences = (db, localeDirs, releaseName) => {
         });
       })
       .on('end', () => {
-
         // When complete, write all reported sentences to TSV
-        Object.keys(reportedSentences).map(locale => {
+        Object.keys(reportedSentences).forEach((locale) => {
           const localePath = path.join(
             __dirname,
             releaseName,
             locale,
-            'reported.tsv'
+            'reported.tsv',
           );
 
           csv
