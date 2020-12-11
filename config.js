@@ -62,7 +62,7 @@ const config = convict({
   },
   cutoffTime: {
     format: String,
-    default: '2030-01-01 00:00:00'
+    default: '2030-01-01 00:00:00',
   },
   releaseName: {
     format: String,
@@ -94,7 +94,7 @@ const config = convict({
   },
   startFromCorpora: {
     format: Boolean,
-    default: false
+    default: false,
   },
   queryFile: {
     format: String,

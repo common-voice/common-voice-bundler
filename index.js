@@ -4,44 +4,104 @@ const path = require('path');
 const merge = require('lodash.merge');
 const config = require('./config');
 const { spawn } = require('promisify-child-process');
-const { processAndDownloadClips: _processAndDownloadClips } = require('./getClips');
-const { getReportedSentences: _getReportedSentences } = require('./getReportedSentences');
-const { countBuckets, processCorpora: _processCorpora } = require('./processCorpora');
+const {
+  processAndDownloadClips: _processAndDownloadClips,
+} = require('./getClips');
+const {
+  getReportedSentences: _getReportedSentences,
+} = require('./getReportedSentences');
+const {
+  countBuckets,
+  processCorpora: _processCorpora,
+} = require('./processCorpora');
 const { collectAndUploadStats, saveStatsToDisk } = require('./processStats');
 const { uploadDataset: _archiveAndUpload } = require('./upload');
 
+/**
+ * Check configuration for whether the main function should skip archiving
+ * and uploading bundles
+ *
+ * @param {array} releaseLocales      list of locales in current release
+ * @param {Object} bundlerBucket      datasets bucket object with name and bucket keys
+ * @param {string} releaseName        name of current release
+ *
+ * @return {Promise.resolve} either null or updated stats object
+ */
 const archiveAndUpload = async (releaseLocales, bundlerBucket, releaseName) => {
   return config.get('skipBundling')
     ? Promise.resolve()
     : _archiveAndUpload(releaseLocales, bundlerBucket, releaseName);
 };
+
+/**
+ * Check configuration for whether the main function should skip downloading
+ * reported sentences, used for Singleword release
+ *
+ * @param {Object} db              MySQL database connection
+ * @param {array} releaseLocales   list of locales in current release
+ * @param {string} releaseName     name of current release
+ *
+ * @return {Promise.resolve} either null or updated stats object
+ */
 const getReportedSentences = async (db, releaseLocales, releaseName) => {
   return config.get('skipReportedSentences')
     ? Promise.resolve()
     : _getReportedSentences(db, releaseLocales, releaseName);
 };
 
-const processAndDownloadClips = async (db, clipBucket, releaseName, minorityLangs) => {
+/**
+ * Check configuration for whether the main function should skip downloading
+ * clips, used if current stats file is correct
+ *
+ * @param {Object} db               MySQL database connection
+ * @param {Object} bundlerBucket    clips bucket object with name and bucket keys
+ * @param {string} releaseName      name of current release
+ * @param {array}  minorityLangs    array of languages with fewer than 5 speakers
+ *
+ * @return {Promise.resolve} either null or updated stats object
+ */
+const processAndDownloadClips = async (
+  db,
+  clipBucket,
+  releaseName,
+  minorityLangs
+) => {
   return config.get('startFromCorpora')
     ? Promise.resolve(loadStatsFromDisk(releaseName))
     : _processAndDownloadClips(db, clipBucket, releaseName, minorityLangs);
-}
+};
 
-const processCorpora = async releaseName => {
+/**
+ * Check configuration for whether the main function should wait
+ * for corpora generation
+ *
+ * @param {string} releaseName      name of current release
+ *
+ * @return {Promise.resolve} null
+ */
+const processCorpora = async (releaseName) => {
   return config.get('skipCorpora')
     ? Promise.resolve()
     : _processCorpora(releaseName);
 };
 
+/**
+ * Generate list of languages with fewer than 5 unique speakers who should
+ * not have demographic stats generated
+ *
+ * @param {Object} db              MySQL database connection
+ *
+ * @return {array} list of locale names
+ */
 const checkRuleOfFive = async (db) => {
   const minorityLangs = [];
   const queryFile = path.join(__dirname, 'queries', 'uniqueSpeakers.sql');
 
   if (config.get('skipMinorityCheck')) return minorityLangs;
 
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     db.query(fs.readFileSync(queryFile, 'utf-8'))
-      .on('result', row => {
+      .on('result', (row) => {
         if (row.count < 5 && row.name) minorityLangs.push(row.name);
       })
       .on('end', () => {
@@ -55,6 +115,15 @@ const checkRuleOfFive = async (db) => {
   });
 };
 
+/**
+ * Calculate total duration of all mp3s for given locale/releases
+ * and writes interim values to disk
+ *
+ * @param {array}  [releaseLocales]  list of locales
+ * @param {string} releaseName       name of current release
+ *
+ * @return {Object} key-value pairs of locale names + total durations
+ */
 const sumDurations = async (releaseLocales, releaseName) => {
   const durations = {};
 
@@ -80,24 +149,35 @@ const sumDurations = async (releaseLocales, releaseName) => {
   return durations;
 };
 
+/**
+ * Startup function
+ *
+ * Connects to db, optionally downloads and processes clips, waits
+ * for CorporaCreation, and zips and re-uploads clips based on
+ * configs
+ */
 const run = () => {
   const RELEASE_NAME = config.get('releaseName');
   const { db, clipBucket, bundlerBucket } = require('./init').initialize();
 
   db.connect();
 
+  // Check for minorit languages
   checkRuleOfFive(db)
-    .then(minorityLangs =>
+    .then((minorityLangs) =>
+      // Download clips, create TSV object
       processAndDownloadClips(db, clipBucket, RELEASE_NAME, minorityLangs)
     )
-    .then(stats => {
+    .then((stats) => {
       const releaseLocales = Object.keys(stats);
 
+      // wait for all processes to finish
       return Promise.all([
         stats,
         sumDurations(releaseLocales, RELEASE_NAME),
         getReportedSentences(db, releaseLocales, RELEASE_NAME),
         processCorpora(RELEASE_NAME).then(async () => {
+          // merge test/dev/train bucket stats with archive and upload stats
           return merge(
             await countBuckets(releaseLocales, RELEASE_NAME),
             await archiveAndUpload(releaseLocales, bundlerBucket, RELEASE_NAME)
@@ -105,15 +185,13 @@ const run = () => {
         }),
       ]);
     })
-    .then(mergedStats => {
-      return collectAndUploadStats(
-        mergedStats,
-        bundlerBucket,
-        RELEASE_NAME
-      );
+    .then((mergedStats) => {
+      // process and upload stats file
+      return collectAndUploadStats(mergedStats, bundlerBucket, RELEASE_NAME);
     })
-    .catch(e => console.error(e))
+    .catch((e) => console.error(e))
     .finally(() => {
+      // close db
       db.end();
       process.exit(0);
     });

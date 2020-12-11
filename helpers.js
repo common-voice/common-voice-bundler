@@ -8,14 +8,30 @@ const prompt = readline.createInterface({
   output: process.stdout,
 });
 
+/**
+ * Recursive helper function to sequentially create and resolve a series of Promises
+ * over an array, and return all results
+ *
+ * @param {array} array         array of input values for promise
+ * @param {array} resultStore   pointer to array that will store resolved results
+ * @param {function} promiseFn  promise function
+ */
 const sequencePromises = (array, resultStore, promiseFn) => {
-  return promiseFn(array.shift())
-    .then((result) => {
-      resultStore.push(result);
-      return array.length == 0 ? resultStore : sequencePromises(array, resultStore, promiseFn);
-    });
-}
+  return promiseFn(array.shift()).then((result) => {
+    resultStore.push(result);
+    return array.length == 0
+      ? resultStore
+      : sequencePromises(array, resultStore, promiseFn);
+  });
+};
 
+/**
+ * Convert total byte count to human readable size
+ *
+ * @param {number} bytes   total number of bytes
+ *
+ * @return {string} human readable file size to 2 decimal points
+ */
 function bytesToSize(bytes) {
   var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
   if (bytes == 0) return '0 Byte';
@@ -23,11 +39,18 @@ function bytesToSize(bytes) {
   return Math.round(bytes / Math.pow(1024, i), 2) + ' ' + sizes[i];
 }
 
+/**
+ * Count number of lines in given file
+ *
+ * @param {string} filePath    full path of file
+ *
+ * @return {number} number of lines in file
+ */
 function countFileLines(filePath) {
   return new Promise((resolve, reject) => {
     let lineCount = 0;
     fs.createReadStream(filePath)
-      .on('data', buffer => {
+      .on('data', (buffer) => {
         let idx = -1;
         lineCount--; // Because the loop will run once for idx=-1
         do {
@@ -42,6 +65,13 @@ function countFileLines(filePath) {
   });
 }
 
+/**
+ * Create target directory, recurring over subdirs if necessary
+ *
+ * @param {string} targetDir    full path of target directory to create
+ *
+ * @return {string} absolute value of final targetDir
+ */
 function mkDirByPathSync(targetDir) {
   const sep = path.sep;
   const initDir = path.isAbsolute(targetDir) ? sep : '';
@@ -72,12 +102,27 @@ function mkDirByPathSync(targetDir) {
   }, initDir);
 }
 
+/**
+ * Turn prompt into a promise
+ *
+ * @param {string} question     question to show user
+ *
+ * @return {Promise} promisify'd prompt object
+ */
 function promptAsync(question) {
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     prompt.question(question, resolve);
   });
 }
 
+/**
+ * Continue prompting for user input until valid option is provided
+ *
+ * @param {string} prompt       question to show user
+ * @param {Object} options      key: correct answer; value: callback function
+ *
+ * @return {function} call the callback function
+ */
 async function promptLoop(prompt, options) {
   const answer = await promptAsync(prompt);
   const callback = options[answer.toLowerCase()];
@@ -86,6 +131,14 @@ async function promptLoop(prompt, options) {
   else await promptLoop(promptLoop, options);
 }
 
+/**
+ * Given an object, apply a consistent function to each value
+ *
+ * @param {Object} object       key/value pair object
+ * @param {function} mapFn      the function to apply to each value
+ *
+ * @return {Object} transformed object
+ */
 function objectMap(object, mapFn) {
   return Object.keys(object).reduce((result, key) => {
     result[key] = mapFn(object[key]);
@@ -93,6 +146,15 @@ function objectMap(object, mapFn) {
   }, {});
 }
 
+/**
+ * Convert a given duration to # of hours
+ *
+ * @param {number} duration     integer of time duration
+ * @param {string} unit         unit of duration - ms, s, min
+ * @param {number} sigDig       # of decimals to include
+ *
+ * @return {number} number of hours to given significant digits
+ */
 function unitToHours(duration, unit, sigDig) {
   let perHr = 1;
   const sigDigMultiplier = Math.pow(10, sigDig);
@@ -112,6 +174,13 @@ function unitToHours(duration, unit, sigDig) {
   return Math.floor((duration / perHr) * sigDigMultiplier) / sigDigMultiplier;
 }
 
+/**
+ * Hash client ID
+ *
+ * @param {string} id     uuid of client
+ *
+ * @return {string}       sha512 hash of client id
+ */
 function hashId(id) {
   return crypto.createHash('sha512').update(id).digest('hex');
 }
@@ -124,5 +193,5 @@ module.exports = {
   objectMap,
   hashId,
   bytesToSize,
-  sequencePromises
+  sequencePromises,
 };

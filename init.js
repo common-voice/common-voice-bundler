@@ -6,6 +6,14 @@ const S3 = require('aws-sdk/clients/s3');
 const config = require('./config');
 const { mkDirByPathSync } = require('./helpers');
 
+/**
+ * Verify that local files are set up
+ *
+ * @param {string}    queryFile  query file location
+ * @param {string}    clipsDir   release clips folder
+ *
+ * Throw error if queryFile doesn't exist, create folder if clipsDir doesn't exist
+ */
 function verifyFiles(queryFile, clipsDir) {
   if (!fs.existsSync(queryFile)) {
     throw new Error(`The query file specified at ${queryFile} does not exist`);
@@ -16,6 +24,11 @@ function verifyFiles(queryFile, clipsDir) {
   }
 }
 
+/**
+ * Connect to remote DB given config values
+ *
+ * @return {Object}   mysql db connection
+ */
 function connectToDb() {
   const { host, user, password, database } = config.get('db');
 
@@ -35,6 +48,15 @@ function connectToDb() {
   }
 }
 
+/**
+ * Connect to S3 instance given options
+ *
+ * @param {Object}   options for connecting to a bucket (see config)
+ *
+ * Throw error if bucket authentication fails
+ *
+ * @return {Object}  object with name of bucket and bucket connection itself
+ */
 function initS3Bucket(bucketOpts) {
   const { accessKeyId, secretAccessKey, name, region } = bucketOpts;
 
@@ -50,7 +72,7 @@ function initS3Bucket(bucketOpts) {
     region,
   });
 
-  bucket.headBucket({ Bucket: name }, err => {
+  bucket.headBucket({ Bucket: name }, (err) => {
     if (err) {
       throw new Error(
         `An error occurred trying to connect to S3 instance ${name}`
@@ -61,12 +83,23 @@ function initS3Bucket(bucketOpts) {
   return { name, bucket };
 }
 
+/**
+ * Initialize external connections needed
+ *
+ * Verify that queryFile exists
+ * Create a folder for the release if it doesn't already exist
+ * Create a db connection
+ * Verify that it's possible to connect to the clips and dataset buckets
+ *
+ * Exit with error if any of this fails
+ * @return {Object}  objects for db, clip bucket, dataset bucket
+ */
 function initialize() {
-  const RELEASE_NAME = config.get('releaseName');
-  const QUERY_FILE = path.join(__dirname, 'queries', config.get('queryFile'));
+  const releaseName = config.get('releaseName');
+  const queryFile = path.join(__dirname, 'queries', config.get('queryFile'));
 
   try {
-    verifyFiles(QUERY_FILE, RELEASE_NAME);
+    verifyFiles(queryFile, releaseName);
 
     return {
       db: connectToDb(),
