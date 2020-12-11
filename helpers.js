@@ -124,7 +124,7 @@ function promptAsync(question) {
  * @return {function} call the callback function
  */
 async function promptLoop(promptInstance, options) {
-  const answer = await promptAsync(prompt);
+  const answer = await promptAsync(promptInstance);
   const callback = options[answer.toLowerCase()];
 
   if (callback) await callback();

@@ -20,7 +20,7 @@ When that has completed, return to this shell and type 'corpora-complete' and hi
 
   await promptLoop(query, {
     'corpora-complete': () => {
-
+	return;
     },
   });
 };
