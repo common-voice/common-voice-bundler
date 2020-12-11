@@ -15,9 +15,8 @@ const {
   processCorpora: _processCorpora,
 } = require('./processCorpora');
 const { collectAndUploadStats, saveStatsToDisk, loadStatsFromDisk } = require('./processStats');
-const { uploadDataset: _archiveAndUpload } = require('./upload');
+const { db, clipBucket, bundlerBucket } = require('./init').initialize();
 
-const { dbGlobal, clipBucketGlobal, bundlerBucketGlobal } = require('./init').initialize();
 /**
  * Check configuration for whether the main function should skip archiving
  * and uploading bundles
@@ -186,4 +185,4 @@ const run = (db, clipBucket, bundlerBucket) => {
     });
 };
 
-run(dbGlobal, clipBucketGlobal, bundlerBucketGlobal);
+run(db, clipBucket, bundlerBucket);
