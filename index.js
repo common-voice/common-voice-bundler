@@ -11,6 +11,9 @@ const {
   getReportedSentences: _getReportedSentences,
 } = require('./getReportedSentences');
 const {
+  uploadDataset: _archiveAndUpload,
+} = require('./upload');
+const {
   countBuckets,
   processCorpora: _processCorpora,
 } = require('./processCorpora');
