@@ -17,7 +17,7 @@ const prompt = readline.createInterface({
  * @param {function} promiseFn  promise function
  */
 const sequencePromises = (array, resultStore, promiseFn) => {
-  promiseFn(array.shift()).then((result) => {
+  return promiseFn(array.shift()).then((result) => {
     resultStore.push(result);
     return array.length === 0
       ? resultStore

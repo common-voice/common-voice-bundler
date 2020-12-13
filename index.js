@@ -65,7 +65,7 @@ const processAndDownloadClips = async (
   releaseName,
   minorityLangs,
 ) => (config.get('startFromCorpora')
-  ? Promise.resolve(loadStatsFromDisk(releaseName))
+  ? Promise.resolve(loadStatsFromDisk(releaseName).locales)
   : _processAndDownloadClips(db, clipBucket, releaseName, minorityLangs));
 
 /**
