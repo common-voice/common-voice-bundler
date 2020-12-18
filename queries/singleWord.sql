@@ -20,7 +20,7 @@ FROM clips
 
       -- A subquery for taxonomies is faster than a full join
       LEFT JOIN (
-          SELECT sentence_id, term_name
+          SELECT sentence_id, term_name, term_id
           FROM taxonomy_entries
             INNER JOIN taxonomy_terms
               ON taxonomy_entries.term_id = taxonomy_terms.id
@@ -38,4 +38,6 @@ FROM clips
         ON clips.id = demographics.clip_id
 
 WHERE clips.created_at <= ?
+AND terms.term_id = 1
 GROUP BY clips.id
+LIMIT 20000

@@ -4,7 +4,7 @@
   "main": "index.js",
   "license": "MPL-2.0",
   "scripts": {
-    "start": "node index.js"
+    "start": "node --max-old-space-size=8192 index.js"
   },
   "dependencies": {
     "aws-sdk": "^2.383.0",

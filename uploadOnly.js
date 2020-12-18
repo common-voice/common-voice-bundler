@@ -1,10 +1,8 @@
 const S3 = require('aws-sdk/clients/s3');
 const fs = require('fs');
-const path = require('path');
-const tar = require('tar');
 const { PassThrough } = require('stream');
 const config = require('./config');
-const { logProgress } = require('./helpers');
+const { logProgress, sequencePromises } = require('./helpers');
 
 const { accessKeyId, secretAccessKey, name: outBucketName } = config.get(
   'outBucket',
@@ -22,12 +20,12 @@ const outBucket = new S3({
   region: 'us-west-2',
 });
 
-const releaseDir = config.get('releaseName');
+const releaseName = config.get('releaseName');
 
-const tarAndUpload = (locale) => new Promise((resolve) => {
+const uploadLocale = (locale) => new Promise((resolve) => {
   const stream = new PassThrough();
-  const archiveName = `${releaseDir}/${locale}.tar.gz`;
-  console.log('archiving & uploading', archiveName);
+  const archiveName = `${releaseName}/${locale}.tar.gz`;
+  console.log('uploading', archiveName);
   const managedUpload = outBucket.upload({
     Body: stream,
     Bucket: outBucketName,
@@ -37,10 +35,7 @@ const tarAndUpload = (locale) => new Promise((resolve) => {
 
   logProgress(managedUpload);
 
-  const localeDir = path.join(releaseDir, locale);
-  tar
-    .c({ gzip: true, cwd: localeDir }, fs.readdirSync(localeDir))
-    .pipe(stream);
+  fs.createReadStream(`${releaseName}/tarballs/${locale}.tar.gz`).pipe(stream);
 
   return managedUpload
     .promise()
@@ -52,13 +47,12 @@ const tarAndUpload = (locale) => new Promise((resolve) => {
 });
 
 try {
-  if (process.argv.length !== 3) throw new Error('Please enter a locale parameter');
-
-  const [locale] = process.argv.slice(2);
-
-  tarAndUpload(locale)
-    .catch((e) => console.error(e))
-    .finally(() => process.exit(0));
+  sequencePromises(stats.locales, [], uploadLocale)
+    .then((stats) => {
+      const mergedStats = merge(...stats);
+      saveStatsToDisk(releaseName, { locales: mergedStats });
+      process.exit(0);
+    });
 } catch (e) {
   console.error(e.message);
   process.exit(1);

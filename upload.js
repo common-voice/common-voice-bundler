@@ -95,10 +95,11 @@ const tarAndUploadBundle = (
   const stream = new PassThrough();
   const fileName = `${archiveLabel}.tar.gz`;
   const localArchiveDir = path.join(releaseName, 'tarballs');
-  const remoteArchiveKey = `${releaseName}/${fileName}`;
+  mkDirByPathSync(localArchiveDir);
+
   const localFilePath = path.join(localArchiveDir, `${fileName}`);
   const writeStream = fs.createWriteStream(localFilePath);
-  mkDirByPathSync(localArchiveDir);
+  const remoteArchiveKey = `${releaseName}/${fileName}`;
 
   const managedUpload = bundlerBucket.bucket.upload({
     Body: stream,
