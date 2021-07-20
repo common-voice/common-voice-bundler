@@ -198,7 +198,7 @@ const uploadDataset = (locales, bundlerBucket, releaseName) => {
     return tarAndUploadBundle(
       [localeDir],
       releaseName,
-      locale,
+      `${releaseName}-${locale}`,
       bundlerBucket,
     ).then((metadata) => ({ [locale]: metadata }));
   };
