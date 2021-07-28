@@ -41,45 +41,28 @@ const addUploadToDisk = (releaseName, label, data) => {
  * Helper function to see if current archive has alreay been zipped and uploaded
  *
  * @param {string} releaseName     name of current release
- * @param {string} locale          the archive name
+ * @param {string} labelName          the archive name
  *
  * @return {boolean} true if already uploaded
  */
-const checkIfProcessed = (releaseName, locale) => {
+const getMetadataIfProcessed = (releaseName, labelName) => {
   try {
     const data = fs.readFileSync(path.join(releaseName, 'uploaded.json'), 'utf-8');
-    const label = locale || releaseName;
+    const label = labelName || releaseName;
     const uploaded = JSON.parse(data);
-    if (uploaded[label]) {
-      console.log(`${label}.tar.gz of size ${bytesToSize(uploaded[label].size)} was previously uploaded with a checksum of ${uploaded[label].checksum}`);
-    }
-    return uploaded[label];
+    return uploaded[label] ? { [label] : uploaded[label] } : null;
   } catch (e) {
     return false;
   }
 };
 
-/**
- * Helper function to get archived filesize and checksum data from disk
- *
- * @param {string} releaseName         name of current release
- * @param {string} locale (optional)   the locale to check for
- */
-const getUploadedDataFromDisk = (releaseName, locale) => {
-  // if no locale provided, it's a single bundle file, so use releaseName for label too
-  const label = locale || releaseName;
-  const uploaded = JSON.parse(
-    fs.readFileSync(path.join(releaseName, 'uploaded.json'), 'utf-8'),
-  );
-  return { [label]: uploaded[label] };
-};
 
 /**
  * Main function for zipping and uploading files - one archive per function run
  *
  * @param {array} clipsPaths       array of directories to include in tar
  * @param {string} releaseName     name of current release
- * @param {string} archiveLabel     name of archive - usually locale
+ * @param {string} locale     name of archive - usually locale
  * @param {Object} bundlerBucket   datasets bucket object with name and bucket keys
  *
  * @return {Object} stats object
@@ -87,13 +70,13 @@ const getUploadedDataFromDisk = (releaseName, locale) => {
 const tarAndUploadBundle = (
   clipsPaths,
   releaseName,
-  archiveLabel,
+  locale,
   bundlerBucket,
 ) => new Promise((resolve) => {
   let tarSize = 0;
 
   const stream = new PassThrough();
-  const fileName = `${archiveLabel}.tar.gz`;
+  const fileName = locale && locale !== '' ? `${releaseName}-${locale}.tar.gz` : `${releaseName}.tar.gz`;
   const localArchiveDir = path.join(releaseName, 'tarballs');
   mkDirByPathSync(localArchiveDir);
 
@@ -137,7 +120,7 @@ const tarAndUploadBundle = (
       .then(({ ContentLength }) => {
         console.log(`\n${fileName} uploaded`);
         const metadata = { size: ContentLength, checksum };
-        addUploadToDisk(releaseName, archiveLabel, metadata);
+        addUploadToDisk(releaseName, locale, metadata);
         resolve(metadata);
       })
       .catch((err) => console.error(err));
@@ -169,8 +152,8 @@ const tarAndUploadBundle = (
 const uploadDataset = (locales, bundlerBucket, releaseName) => {
   // If all languages are in a single bundle
   if (SINGLE_BUNDLE) {
-    if (checkIfProcessed(releaseName)) {
-      return getUploadedDataFromDisk(releaseName);
+    if (getMetadataIfProcessed(releaseName)) {
+      return getMetadataIfProcessed(releaseName);
     }
 
     // If single bundle, all paths in release directory should be zipped
@@ -179,7 +162,7 @@ const uploadDataset = (locales, bundlerBucket, releaseName) => {
     return tarAndUploadBundle(
       localeDirPaths,
       releaseName,
-      releaseName,
+      '',
       bundlerBucket,
     ).then((metadata) => {
       // save stats to disk and return stats
@@ -190,15 +173,17 @@ const uploadDataset = (locales, bundlerBucket, releaseName) => {
   // Internal helper function to zip and upload a single locale in Promise format
   const tarLocale = (locale) => {
     const localeDir = path.join(releaseName, locale);
-
-    if (checkIfProcessed(releaseName, locale)) {
-      return new Promise((resolve) => resolve(getUploadedDataFromDisk(releaseName, locale)));
+    const labelName = `${releaseName}-${locale}`;
+    const existingData = getMetadataIfProcessed(releaseName, locale);
+    if (existingData) {
+      console.log(`${labelName}.tar.gz of size ${bytesToSize(existingData[locale].size)} was previously uploaded with a checksum of ${existingData[locale].checksum}`);
+      return new Promise((resolve) => resolve(existingData));
     }
 
     return tarAndUploadBundle(
       [localeDir],
       releaseName,
-      `${releaseName}-${locale}`,
+      locale,
       bundlerBucket,
     ).then((metadata) => ({ [locale]: metadata }));
   };
