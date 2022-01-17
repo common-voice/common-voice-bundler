@@ -16,7 +16,7 @@ FROM clips
   -- 	make list of individual users' accents
   JOIN (
     SELECT uc.client_id,
-      GROUP_CONCAT(a.accent_token) as accent_list
+      GROUP_CONCAT(a.accent_name) as accent_list
     FROM user_clients uc
       JOIN user_client_accents uca ON uc.client_id = uca.client_id
       JOIN accents a ON uca.accent_id = a.id
