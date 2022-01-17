@@ -7,7 +7,7 @@
     "start": "node --max-old-space-size=8192 index.js"
   },
   "dependencies": {
-    "aws-sdk": "^2.383.0",
+    "aws-sdk": "^2.814.0",
     "convict": "^4.4.1",
     "dotenv": "^8.2.0",
     "fast-csv": "^4.3.6",
