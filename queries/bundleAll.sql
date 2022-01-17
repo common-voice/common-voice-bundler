@@ -13,14 +13,15 @@ FROM clips
   LEFT JOIN votes ON clips.id = votes.clip_id
   LEFT JOIN user_client_accents accents ON clips.client_id = accents.client_id
   AND accents.locale_id = clips.locale_id
-  -- 	make list of individual users' accents
+  -- A subquery that makes list of individual users accents
   JOIN (
     SELECT uc.client_id,
       GROUP_CONCAT(a.accent_name) as accent_list
     FROM user_clients uc
       JOIN user_client_accents uca ON uc.client_id = uca.client_id
       JOIN accents a ON uca.accent_id = a.id
-    WHERE a.accent_token != 'unspecified'
+    WHERE a.accent_name != 'unspecified' and a.accent_name != ''
+    ORDER BY a.accent_name
   ) client_accent_list ON accents.client_id = client_accent_list.client_id
   LEFT JOIN locales ON clips.locale_id = locales.id
   -- A subquery for taxonomies is faster than a full join
