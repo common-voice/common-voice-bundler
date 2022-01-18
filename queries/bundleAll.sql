@@ -6,13 +6,13 @@ SELECT clips.id,
   COALESCE(SUM(NOT votes.is_valid), 0) AS down_votes,
   COALESCE(age, '') AS age,
   COALESCE(gender, '') AS gender,
-  client_accent_list.accent_list as accents,
+  COALESCE(client_accent_list.accent_list, '') as accents,
   locales.name AS locale,
   COALESCE(terms.term_name, '') AS segment
 FROM clips
   LEFT JOIN votes ON clips.id = votes.clip_id
   LEFT JOIN user_client_accents accents ON clips.client_id = accents.client_id
-  AND accents.locale_id = clips.locale_id 
+  AND accents.locale_id = clips.locale_id
   -- A subquery that makes list of individual users accents
   LEFT JOIN (
     SELECT uca.client_id,
@@ -26,14 +26,14 @@ FROM clips
       uca.client_id
   ) client_accent_list ON clips.client_id = client_accent_list.client_id
   and client_accent_list.locale_id = clips.locale_id
-  LEFT JOIN locales ON clips.locale_id = locales.id 
+  LEFT JOIN locales ON clips.locale_id = locales.id
   -- A subquery for taxonomies is faster than a full join
   LEFT JOIN (
     SELECT sentence_id,
       term_name
     FROM taxonomy_entries
       INNER JOIN taxonomy_terms ON taxonomy_entries.term_id = taxonomy_terms.id
-  ) terms ON clips.original_sentence_id = terms.sentence_id 
+  ) terms ON clips.original_sentence_id = terms.sentence_id
   -- A subquery for demographics is faster than a full join
   LEFT JOIN (
     SELECT clip_demographics.clip_id,
