@@ -6,7 +6,7 @@ SELECT clips.id,
   COALESCE(SUM(NOT votes.is_valid), 0) AS down_votes,
   COALESCE(age, '') AS age,
   COALESCE(gender, '') AS gender,
-  client_accent_list.accent_list as accents,
+  COALESCE(client_accent_list.accent_list, '') as accents,
   locales.name AS locale,
   COALESCE(terms.term_name, '') AS segment
 FROM clips
@@ -14,15 +14,18 @@ FROM clips
   LEFT JOIN user_client_accents accents ON clips.client_id = accents.client_id
   AND accents.locale_id = clips.locale_id
   -- A subquery that makes list of individual users accents
-  JOIN (
-    SELECT uc.client_id,
+  LEFT JOIN (
+    SELECT uca.client_id,
+      uca.locale_id,
       GROUP_CONCAT(a.accent_name) as accent_list
-    FROM user_clients uc
-      JOIN user_client_accents uca ON uc.client_id = uca.client_id
-      JOIN accents a ON uca.accent_id = a.id
-    WHERE a.accent_name != 'unspecified' and a.accent_name != ''
-    ORDER BY a.accent_name
-  ) client_accent_list ON accents.client_id = client_accent_list.client_id
+    FROM user_client_accents uca
+      JOIN accents a ON a.id = uca.accent_id
+    WHERE a.accent_name != 'unspecified'
+      and a.accent_name != ''
+    GROUP BY uca.locale_id,
+      uca.client_id
+  ) client_accent_list ON clips.client_id = client_accent_list.client_id
+  and client_accent_list.locale_id = clips.locale_id
   LEFT JOIN locales ON clips.locale_id = locales.id
   -- A subquery for taxonomies is faster than a full join
   LEFT JOIN (
