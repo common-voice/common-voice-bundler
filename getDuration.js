@@ -9,6 +9,7 @@ const csv = require('fast-csv');
 // loop through every mp3 file
 // open and find mp3 duration
 // save to main log (clip-durations.tsv)
+// return total duration for directory
 
 const TSV_OPTIONS = {
   headers: true,
@@ -16,20 +17,20 @@ const TSV_OPTIONS = {
   quote: false,
 };
 
-const getDuration = (directoryPath, clipPath, languageCode, tsvStream) => {
+const _getDuration = (directoryPath, clipPath, languageCode, tsvStream) => {
   return new Promise((resolve, reject) => {
     try {
       ffmpeg(path.join(directoryPath, clipPath)).ffprobe(
         0,
         function (err, data) {
-          const dur = data.format.duration * 1000;
-          // console.log('t', totalClipsDuration);
+          let duration = data.format.duration * 1000;
+          duration = Number.parseFloat(duration).toFixed(0);
           tsvStream.write({
-            duration: dur,
+            duration: duration,
             languagecode: languageCode,
             path: clipPath,
           });
-          resolve(dur);
+          resolve(duration);
         }
       );
     } catch (error) {
@@ -38,12 +39,23 @@ const getDuration = (directoryPath, clipPath, languageCode, tsvStream) => {
   });
 };
 
-const main = async (directoryPath, durationLedgerFilePath) => {
+/**
+ *
+ * @param {string} languageCode Language Code (e.g. 'en')
+ * @param {string} directoryPath Path to directory where clips are located
+ * @param {string} durationLedgerFilePath Path to file where clip data is stored
+ * @returns number
+ */
+const getDuration = async (
+  languageCode,
+  directoryPath,
+  durationLedgerFilePath
+) => {
   try {
     let totalClipsDuration = 0;
     //get the language based on the path (<langCode>/clips)
-    let languageCode = path.dirname(directoryPath);
-    languageCode = path.basename(languageCode);
+    // let languageCode = path.dirname(directoryPath);
+    // languageCode = path.basename(languageCode);
 
     const clipPaths = await fsPromise.readdir(directoryPath);
     const tsvStream = csv.format(TSV_OPTIONS);
@@ -51,9 +63,8 @@ const main = async (directoryPath, durationLedgerFilePath) => {
       fs.createWriteStream(path.join(__dirname, durationLedgerFilePath))
     );
 
-    console.time('Start of reading MP3');
     const promises = clipPaths.map((clipPath) => {
-      return getDuration(directoryPath, clipPath, languageCode, tsvStream);
+      return _getDuration(directoryPath, clipPath, languageCode, tsvStream);
     });
 
     const durs = await Promise.all(promises);
@@ -61,23 +72,6 @@ const main = async (directoryPath, durationLedgerFilePath) => {
       return sum + dur;
     }, 0);
 
-    // ffmpeg(path.join(directoryPath, clipPath)).ffprobe(
-    //   0,
-    //   function (err, data) {
-    //     const dur = data.format.duration * 1000;
-    //     totalClipsDuration += dur;
-    //     // console.log('t', totalClipsDuration);
-    //     tsvStream.write({
-    //       duration: dur,
-    //       languagecode: languageCode,
-    //       path: clipPath,
-    //     });
-    //     return totalClipsDuration;
-    //   }
-    // );
-    // console.log('t', totalClipsDuration);
-    // }
-    console.timeEnd('Start of reading MP3');
     console.log(
       `Language ${languageCode} has a total duration of ${totalClipsDuration}ms`
     );
@@ -88,4 +82,8 @@ const main = async (directoryPath, durationLedgerFilePath) => {
   }
 };
 
-main('/home/g/Documents/cv-dataset/az/clips', 'clip-durations.tsv');
+module.exports = {
+  getDuration,
+};
+
+// main('/home/g/Documents/cv-dataset/az/clips', 'clip-durations.tsv');
