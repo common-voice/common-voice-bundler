@@ -40,7 +40,7 @@ const _getDuration = (directoryPath, clipPath, languageCode, tsvStream) => {
  * @param {string} languageCode Language Code (e.g. 'en')
  * @param {string} directoryPath Path to directory where clips are located
  * @param {string} durationLedgerFilePath Path to file where clip data is stored
- * @returns Promise<number>
+ * @returns Promise<{languageCode, totalClipDuration}>
  */
 const getDuration = async (
   languageCode,
