@@ -53,15 +53,12 @@ const getDuration = async (
   const clipPaths = await fsPromise.readdir(directoryPath);
   const pa = path.join(__dirname, durationLedgerFilePath);
   const clipList = [];
-  // const clipList = await Promise.all(
-  for await (const clipPath of clipPaths) {
-    clipList.push(await makeData(directoryPath, clipPath, languageCode, pa));
-  }
 
-  totalClipsDuration = clipList.reduce((sum, clip) => {
-    const a = +clip[0];
-    return sum + a;
-  }, 0);
+  await Promise.all(
+    clipPaths.map((clipPath) => {
+      return makeData(directoryPath, clipPath, languageCode, pa);
+    })
+  );
 
   console.log(
     `Language ${languageCode} has a total duration of ${totalClipsDuration}ms`
@@ -72,14 +69,34 @@ const getDuration = async (
   });
 };
 
-const lang = 'az';
 module.exports = {
   getDuration,
 };
+
+const getFilesFromDirectory = async (directoryPath, callback) => {
+  return await fsPromise.readdir(directoryPath);
+};
+
 (async () => {
-  getDuration(
-    lang,
-    '/home/ubuntu/cv-bundler/cv-corpus-9.0-2022-04-27/' + lang + '/clips',
-    'clip-durations.csv'
-  );
+  const args = process.argv.slice(2);
+
+  try {
+    const DIRECTORY_PATH =
+      args[0] || '/home/ubuntu/cv-bundler/cv-corpus-9.0-2022-04-27/';
+    const dirs = await getFilesFromDirectory(DIRECTORY_PATH);
+
+    await Promise.all(
+      dirs.map((langPath) => {
+        const lang = path.basename(langPath);
+        console.log('Reading ', lang, langPath);
+        return getDuration(
+          lang,
+          DIRECTORY_PATH + lang + '/clips',
+          lang + '-clip-durations.csv'
+        );
+      })
+    );
+  } catch (error) {
+    console.error(error);
+  }
 })();
