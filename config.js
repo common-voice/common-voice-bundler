@@ -64,6 +64,10 @@ const config = convict({
     format: String,
     default: '2030-01-01 00:00:00',
   },
+  startCutoffTime: {
+    format: String,
+    default: '2010-01-01 00:00:00',
+  },
   releaseName: {
     format: String,
     default: 'cv-corpus-1',

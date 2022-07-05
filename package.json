@@ -7,10 +7,12 @@
     "start": "node --max-old-space-size=8192 index.js"
   },
   "dependencies": {
+    "async": "^3.2.3",
     "aws-sdk": "^2.814.0",
     "convict": "^4.4.1",
     "dotenv": "^8.2.0",
     "fast-csv": "^4.3.6",
+    "fluent-ffmpeg": "^2.1.2",
     "lodash.merge": "^4.6.2",
     "mysql": "^2.16.0",
     "promisify-child-process": "^3.1.0",

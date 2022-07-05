@@ -27,7 +27,7 @@ const processAndDownloadClips = (
   db,
   clipBucket,
   releaseName,
-  minorityLangs,
+  minorityLangs
 ) => {
   const queryFile = path.join(__dirname, 'queries', config.get('queryFile'));
 
@@ -50,9 +50,9 @@ const processAndDownloadClips = (
     // has been completed
     const cleanUp = () => {
       if (
-        readAllRows
-        && activeBucketConnections === 0
-        && activeWriteStreams === 0
+        readAllRows &&
+        activeBucketConnections === 0 &&
+        activeWriteStreams === 0
       ) {
         console.log('');
         tsvStream.end();
@@ -64,7 +64,7 @@ const processAndDownloadClips = (
           'utf8',
           (err) => {
             if (err) throw err;
-          },
+          }
         );
 
         // format stats and return to main run function
@@ -103,14 +103,14 @@ const processAndDownloadClips = (
         () => {
           activeWriteStreams--;
           updateDbStatus();
-        },
+        }
       );
     };
 
     // Helper function to render current progress
     const renderProgress = () => {
       process.stdout.write(
-        `${rowIndex} rows processed, ${clipSavedIndex} downloaded\r`,
+        `${rowIndex} rows processed, ${clipSavedIndex} downloaded\r`
       );
     };
 
@@ -144,7 +144,10 @@ const processAndDownloadClips = (
     };
 
     // Main query for bundling
-    db.query(fs.readFileSync(queryFile, 'utf-8'), [config.get('cutoffTime')])
+    db.query(fs.readFileSync(queryFile, 'utf-8'), [
+      config.get('startCutoffTime'),
+      config.get('cutoffTime'),
+    ])
       .on('result', (dbRow) => {
         const row = dbRow;
         rowIndex++;
@@ -162,8 +165,8 @@ const processAndDownloadClips = (
 
         // If audio file has previously been downloaded, update stats/TSV immediately
         if (
-          fs.existsSync(soundFilePath)
-          && fs.statSync(soundFilePath).size > 0
+          fs.existsSync(soundFilePath) &&
+          fs.statSync(soundFilePath).size > 0
         ) {
           stats = updateClipStats(stats, row);
           appendToTsv(row, newPath);
