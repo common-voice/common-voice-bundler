@@ -208,7 +208,7 @@ const uploadDataset = (locales, bundlerBucket, releaseName) => {
     const labelName = `${releaseName}-${locale}`;
 
     //only upload files in clips.tsv
-    if (config.get('startCutOffTime')) {
+    if (config.get('startCutoffTime')) {
       localeDir = getClipList(releaseName, locale);
       console.log(
         'Fetching all relevant clips for delta release: ',
