@@ -57,7 +57,7 @@ const getMetadataIfProcessed = (releaseName, labelName) => {
   }
 };
 
-const getClipList = async (releaseName) => {
+const getClipList = async (releaseName, locale) => {
   try {
     await fs.readFile(
       path.join(releaseName, 'clips.tsv'),
@@ -65,7 +65,7 @@ const getClipList = async (releaseName) => {
       function (err, data) {
         data = data.toString('utf-8').split('\n');
         let fileNames = data.reduce((temp, row) => {
-          if (row.split('\t')[9].trim()) {
+          if (row.split('\t')[9].trim() === locale) {
             temp.push(row.split('\t')[2]);
           }
           return temp;
@@ -204,12 +204,18 @@ const uploadDataset = (locales, bundlerBucket, releaseName) => {
   }
   // Internal helper function to zip and upload a single locale in Promise format
   const tarLocale = (locale) => {
-    const localeDir = path.join(releaseName, locale);
+    let localeDir = path.join(releaseName, locale);
     const labelName = `${releaseName}-${locale}`;
 
     //only upload files in clips.tsv
     if (config.get('startCutOffTime')) {
-      const clipFiles = getClipList(releaseName);
+      localeDir = getClipList(releaseName, locale);
+      console.log(
+        'Fetching all relevant clips for delta release: ',
+        localeDir.length,
+        'clips for ',
+        locale
+      );
     }
     const existingData = getMetadataIfProcessed(releaseName, locale);
     if (existingData) {
