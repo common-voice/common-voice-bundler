@@ -31,7 +31,7 @@ const saveStatsToDisk = (releaseName, newStats) => {
     fs.writeFileSync(
       `${releaseName}/stats.json`,
       JSON.stringify(merge({ ...newStats }, { ...currentStats })),
-      'utf8',
+      'utf8'
     );
   } catch (e) {
     console.log(`error writing stats file: ${e.message}`);
@@ -48,8 +48,9 @@ const saveStatsToDisk = (releaseName, newStats) => {
  */
 const updateClipStats = (stats, row) => {
   // Initialize locale in stats object if it doesn't exist
-  const localeStats = stats[row.locale]
-    || (stats[row.locale] = {
+  const localeStats =
+    stats[row.locale] ||
+    (stats[row.locale] = {
       clips: 0,
       splits: { accent: {}, age: {}, gender: {} },
       usersSet: new Set(),
@@ -86,13 +87,13 @@ const formatFinalClipsStats = (releaseName, localeSplits) => {
       clips,
 
       // convert demographic count sinto demographic ratios
-      splits: objectMap(splits, (values) => objectMap(
-        values, (value) => Number((value / clips).toFixed(2)),
-      )),
+      splits: objectMap(splits, (values) =>
+        objectMap(values, (value) => Number((value / clips).toFixed(2)))
+      ),
 
       // convert userSet into user count
       users: usersSet.size,
-    }),
+    })
   );
 
   saveStatsToDisk(releaseName, { locales: processedStats });
@@ -114,9 +115,11 @@ const calculateAggregateStats = (stats) => {
     const localeStats = stats.locales[locale];
     const validClips = localeStats.buckets ? localeStats.buckets.validated : 0;
 
-    localeStats.avgDurationSecs = Math.round(localeStats.duration / localeStats.clips) / 1000;
-    localeStats.validDurationSecs = Math.round((localeStats.duration / localeStats.clips) * validClips)
-      / 1000;
+    localeStats.avgDurationSecs =
+      Math.round(localeStats.duration / localeStats.clips) / 1000;
+    localeStats.validDurationSecs =
+      Math.round((localeStats.duration / localeStats.clips) * validClips) /
+      1000;
 
     localeStats.totalHrs = unitToHours(localeStats.duration, 'ms', 2);
     localeStats.validHrs = unitToHours(localeStats.validDurationSecs, 's', 2);
@@ -140,7 +143,7 @@ const calculateAggregateStats = (stats) => {
  *
  * @param {Object} stats              ongoing stats object
  * @param {Object} bundlerBucket      datasets bucket object with name and bucket keys
-  * @param {string} releaseName       name of current release
+ * @param {string} releaseName       name of current release
  *
  * @return {Object} final formatted stats object
  */
