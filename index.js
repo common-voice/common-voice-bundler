@@ -20,7 +20,7 @@ const {
   saveStatsToDisk,
   loadStatsFromDisk,
 } = require('./processStats');
-const { getDuration } = require('./getDuration');
+// const { getDuration } = require('./getDuration');
 const { db, clipBucket, bundlerBucket } = require('./init').initialize();
 
 /**
