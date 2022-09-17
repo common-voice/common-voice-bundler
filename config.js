@@ -66,6 +66,7 @@ const config = convict({
   },
   startCutoffTime: {
     format: String,
+    nullable: true,
     default: null,
   },
   releaseName: {
