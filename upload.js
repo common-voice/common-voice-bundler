@@ -7,7 +7,6 @@ const crypto = require('crypto');
 const { bytesToSize, mkDirByPathSync, sequencePromises } = require('./helpers');
 const { saveStatsToDisk } = require('./processStats');
 const config = require('./config');
-const fsPromise = require('fs').promises;
 const SINGLE_BUNDLE = config.get('singleBundle');
 
 /**
@@ -57,25 +56,16 @@ const getMetadataIfProcessed = (releaseName, labelName) => {
   }
 };
 
-const getClipList = async (releaseName, locale) => {
-  try {
-    await fs.readFile(
-      path.join(releaseName, 'clips.tsv'),
-      'utf8',
-      function (err, data) {
-        data = data.toString('utf-8').split('\n');
-        let fileNames = data.reduce((temp, row) => {
-          if (row.split('\t')[9].trim() === locale) {
-            temp.push(row.split('\t')[2]);
-          }
-          return temp;
-        }, []);
-        return fileNames;
-      }
-    );
-  } catch (e) {
-    return false;
-  }
+const getClipList = (releaseName, locale) => {
+  const data = fs.readFileSync(path.join(releaseName, 'clips.tsv'), 'utf8');
+  const rows = data.toString('utf-8').split('\n');
+  let fileNames = rows.reduce((temp, row) => {
+    if (row.split('\t')[10].trim() === locale) {
+      temp.push(row.split('\t')[2]);
+    }
+    return temp;
+  }, []);
+  return fileNames;
 };
 /**
  * Main function for zipping and uploading files - one archive per function run
@@ -89,6 +79,8 @@ const getClipList = async (releaseName, locale) => {
  */
 const tarAndUploadBundle = (clipsPaths, releaseName, locale, bundlerBucket) =>
   new Promise((resolve) => {
+    //console.log('clipsPaths', clipsPaths.length, clipsPaths[0])
+    if (clipsPaths[0].length < 1) return;
     let tarSize = 0;
 
     const stream = new PassThrough();
@@ -153,10 +145,9 @@ const tarAndUploadBundle = (clipsPaths, releaseName, locale, bundlerBucket) =>
         })
         .catch((err) => console.error(err));
     });
-
     // the part that actually does the tarring
     return tar
-      .c({ gzip: true }, clipsPaths)
+      .c({ gzip: true }, clipsPaths[0])
       .on('data', (data) => {
         tarSize += data.length;
         process.stdout.write(
@@ -209,7 +200,8 @@ const uploadDataset = (locales, bundlerBucket, releaseName) => {
 
     //only upload files in clips.tsv
     if (config.get('startCutoffTime')) {
-      localeDir = getClipList(releaseName, locale);
+      const localeClips = getClipList(releaseName, locale);
+      localeDir = localeClips.map((s) => path.join(localeDir, 'clips', s));
       console.log(
         'Fetching all relevant clips for delta release: ',
         localeDir.length,
@@ -228,7 +220,10 @@ const uploadDataset = (locales, bundlerBucket, releaseName) => {
       );
       return new Promise((resolve) => resolve(existingData));
     }
-
+    if (localeDir.length < 1)
+      return new Promise((resolve, reject) =>
+        resolve({ [locale]: { size: 0, checksum: 'null' } })
+      );
     return tarAndUploadBundle(
       [localeDir],
       releaseName,

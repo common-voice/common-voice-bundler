@@ -20,7 +20,7 @@ const {
   saveStatsToDisk,
   loadStatsFromDisk,
 } = require('./processStats');
-const { getDuration } = require('./getDuration');
+// const { getDuration } = require('./getDuration');
 const { db, clipBucket, bundlerBucket } = require('./init').initialize();
 
 /**
@@ -125,24 +125,28 @@ const checkRuleOfFive = async (db) => {
  * @return {Object} key-value pairs of locale names + total durations
  */
 const sumDurations = async (releaseLocales, releaseName) => {
-  const languageDurations = await Promise.all(
-    releaseLocales.map((locale) => {
-      return getDuration(
-        locale,
-        path.join(releaseName, locale, 'clips'),
-        'clip-durations.tsv'
-      );
-    })
-  );
+  const durations = {};
 
-  const formattedDurations = languageDurations.reduce((obj, lang) => {
-    obj[lang.languageCode] = lang.totalClipsDuration;
-    return obj;
-  }, {});
+  for (const locale of releaseLocales) {
+    const duration = Number(
+      (
+        await spawn(
+          'RUST_BACKTRACE=1 /home/ubuntu/mp3-duration-sum/target/release/mp3-duration-sum',
+          [path.join(releaseName, locale, 'clips')],
+          {
+            encoding: 'utf8',
+            shell: true,
+            maxBuffer: 1024 * 1024 * 10,
+          }
+        )
+      ).stdout
+    );
 
-  saveStatsToDisk(releaseName, { locales: formattedDurations });
+    durations[locale] = { duration };
+    saveStatsToDisk(releaseName, { locales: durations });
+  }
 
-  return formattedDurations;
+  return durations;
 };
 
 /**
@@ -154,9 +158,9 @@ const sumDurations = async (releaseLocales, releaseName) => {
  */
 const run = (db, clipBucket, bundlerBucket) => {
   const RELEASE_NAME = config.get('releaseName');
-
+  console.log(`Starting Release: ${RELEASE_NAME}`);
   db.connect();
-
+  console.log('Connected to database');
   // Check for minorit languages
   checkRuleOfFive(db)
     // Download clips, create TSV object
