@@ -40,6 +40,7 @@ In order to run this, you need to override the default keys defined in [config.j
 The other options are:
 
 * `cutoffTime`: clips will only be downloaded if they were created before this time
+* `startCutoffTime`: clips will only be included if they were created *after* this time. To be used for delta releases and inconjuction with `cutoffTime`
 * `skipBundling`: this will do everything except bundle and upload clips (used mostly for testing)
 * `skipCorpora`: this will do everything but skip waiting for you to create the corpora (used if the process was interrupted and you already have the appropriate corpora)
 * `skipHashing`: this will skip hashing the client ID (used mostly for testing)
