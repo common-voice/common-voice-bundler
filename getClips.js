@@ -143,11 +143,19 @@ const processAndDownloadClips = (
         });
     };
 
+    let queryParameters = [];
+    //pass two dates for delta releases
+    if (config.get('startCutoffTime')) {
+      queryParameters = [
+        config.get('startCutoffTime'),
+        config.get('cutoffTime'),
+      ];
+    } else {
+      queryParameters = [config.get('cutoffTime')];
+    }
+    
     // Main query for bundling
-    db.query(fs.readFileSync(queryFile, 'utf-8'), [
-      config.get('startCutoffTime'),
-      config.get('cutoffTime'),
-    ])
+    db.query(fs.readFileSync(queryFile, 'utf-8'), queryParameters
       .on('result', (dbRow) => {
         const row = dbRow;
         rowIndex++;
