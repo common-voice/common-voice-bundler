@@ -9,6 +9,7 @@ const { saveStatsToDisk } = require('./processStats');
 const config = require('./config');
 const fsPromise = require('fs').promises;
 const SINGLE_BUNDLE = config.get('singleBundle');
+const EXCLUDED_FILES = ['clips', 'dev.tsv', 'test.tsv', 'train.tsv'];
 
 /**
  * Helper function to log a fully uploaded tar to disk so it can be skipped next time
@@ -57,25 +58,18 @@ const getMetadataIfProcessed = (releaseName, labelName) => {
   }
 };
 
-const getClipList = async (releaseName, locale) => {
-  try {
-    await fs.readFile(
-      path.join(releaseName, 'clips.tsv'),
-      'utf8',
-      function (err, data) {
-        data = data.toString('utf-8').split('\n');
-        let fileNames = data.reduce((temp, row) => {
-          if (row.split('\t')[9].trim() === locale) {
-            temp.push(row.split('\t')[2]);
-          }
-          return temp;
-        }, []);
-        return fileNames;
-      }
-    );
-  } catch (e) {
-    return false;
-  }
+const getClipList = (releaseName, locale) => {
+  const fileData = fs.readFileSync(path.join(releaseName, 'clips.tsv'), {
+    encoding: 'utf8',
+  });
+  const data = fileData.toString('utf-8').split('\n');
+  let fileNames = data.reduce((temp, row) => {
+    if (row.split('\t')[10].trim() === locale) {
+      temp.push(row.split('\t')[2]);
+    }
+    return temp;
+  }, []);
+  return fileNames;
 };
 /**
  * Main function for zipping and uploading files - one archive per function run
@@ -170,6 +164,12 @@ const tarAndUploadBundle = (clipsPaths, releaseName, locale, bundlerBucket) =>
       });
   });
 
+const getMetadataFiles = (localeDir) => {
+  return fs
+    .readdirSync(localeDir)
+    .filter((fileName) => !EXCLUDED_FILES.includes(fileName));
+};
+
 /**
  * Entry point function for zipping and uploading files
  *
@@ -179,7 +179,7 @@ const tarAndUploadBundle = (clipsPaths, releaseName, locale, bundlerBucket) =>
  *
  * @return {Object} stats object
  */
-const uploadDataset = (locales, bundlerBucket, releaseName) => {
+const uploadDataset = async (locales, bundlerBucket, releaseName) => {
   // If all languages are in a single bundle
   if (SINGLE_BUNDLE) {
     if (getMetadataIfProcessed(releaseName)) {
@@ -204,18 +204,29 @@ const uploadDataset = (locales, bundlerBucket, releaseName) => {
   }
   // Internal helper function to zip and upload a single locale in Promise format
   const tarLocale = (locale) => {
-    let localeDir = path.join(releaseName, locale);
+    // for full releases, this is a path,
+    const localePathToDir = path.join(releaseName, locale);
+    // <releaseName>/<locale_token>
+    let localeDir = [localePathToDir]; // array beacuse tar.c needs it to be
     const labelName = `${releaseName}-${locale}`;
-
+    console.log('localePathToDir', localePathToDir);
     //only upload files in clips.tsv
     if (config.get('startCutoffTime')) {
-      localeDir = getClipList(releaseName, locale);
+      const metadataFiles = getMetadataFiles(localePathToDir).map((fileName) =>
+        path.join(localePathToDir, fileName)
+      );
+      localeDir = getClipList(releaseName, locale).map((fileName) =>
+        path.join(localePathToDir, 'clips', fileName)
+      ); //for delta, this is an array of pathsq
       console.log(
         'Fetching all relevant clips for delta release: ',
         localeDir.length,
         'clips for ',
         locale
       );
+      //join metadata paths with clip paths for uploading
+      localeDir = localeDir.concat(metadataFiles);
+      console.log('Concat metadata files:', metadataFiles.length);
     }
     const existingData = getMetadataIfProcessed(releaseName, locale);
     if (existingData) {
@@ -230,7 +241,7 @@ const uploadDataset = (locales, bundlerBucket, releaseName) => {
     }
 
     return tarAndUploadBundle(
-      [localeDir],
+      localeDir,
       releaseName,
       locale,
       bundlerBucket

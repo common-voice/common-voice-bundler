@@ -125,24 +125,28 @@ const checkRuleOfFive = async (db) => {
  * @return {Object} key-value pairs of locale names + total durations
  */
 const sumDurations = async (releaseLocales, releaseName) => {
-  const languageDurations = await Promise.all(
-    releaseLocales.map((locale) => {
-      return getDuration(
-        locale,
-        path.join(releaseName, locale, 'clips'),
-        'clip-durations.tsv'
-      );
-    })
-  );
+  const durations = {};
 
-  const formattedDurations = languageDurations.reduce((obj, lang) => {
-    obj[lang.languageCode] = lang.totalClipsDuration;
-    return obj;
-  }, {});
+  for (const locale of releaseLocales) {
+    const duration = Number(
+      (
+        await spawn(
+          'RUST_BACKTRACE=1 mp3-duration-sum',
+          [path.join(releaseName, locale, 'clips')],
+          {
+            encoding: 'utf8',
+            shell: true,
+            maxBuffer: 1024 * 1024 * 10,
+          }
+        )
+      ).stdout
+    );
 
-  saveStatsToDisk(releaseName, { locales: formattedDurations });
+    durations[locale] = { duration };
+    saveStatsToDisk(releaseName, { locales: durations });
+  }
 
-  return formattedDurations;
+  return durations;
 };
 
 /**
