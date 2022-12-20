@@ -38,7 +38,8 @@ const makeData = async (directoryPath, clipPath, languageCode, pathf) => {
 };
 
 /**
- *
+ * Experimental Node-only implementation to get clip duration and save to a static file.
+ * Subsequent getDuration calls would read from file instead of ffmpeg.
  * @param {string} languageCode Language Code (e.g. 'en')
  * @param {string} directoryPath Path to directory where clips are located
  * @param {string} durationLedgerFilePath Path to file where clip data is stored
