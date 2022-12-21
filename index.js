@@ -20,7 +20,7 @@ const {
   saveStatsToDisk,
   loadStatsFromDisk,
 } = require('./processStats');
-const { getDuration } = require('./getDuration');
+// const { getDuration } = require('./getDuration');
 const { db, clipBucket, bundlerBucket } = require('./init').initialize();
 
 /**
@@ -158,9 +158,9 @@ const sumDurations = async (releaseLocales, releaseName) => {
  */
 const run = (db, clipBucket, bundlerBucket) => {
   const RELEASE_NAME = config.get('releaseName');
-
+  console.log(`Starting Release: ${RELEASE_NAME}`);
   db.connect();
-
+  console.log('Connected to database');
   // Check for minorit languages
   checkRuleOfFive(db)
     // Download clips, create TSV object

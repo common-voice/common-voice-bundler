@@ -42,7 +42,7 @@ const processAndDownloadClips = (
   let stats = {};
 
   // read and write streams for TSV data
-  const tsvStream = csv.createWriteStream(TSV_OPTIONS);
+  const tsvStream = csv.format(TSV_OPTIONS);
   tsvStream.pipe(fs.createWriteStream(path.join(releaseName, 'clips.tsv')));
 
   return new Promise((resolve) => {
