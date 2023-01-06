@@ -7,6 +7,7 @@ SELECT clips.id,
   COALESCE(age, '') AS age,
   COALESCE(gender, '') AS gender,
   COALESCE(client_accent_list.accent_list, '') as accents,
+  COALESCE(client_variant.variant, '') AS variant,
   locales.name AS locale,
   COALESCE(terms.term_name, '') AS segment
 FROM clips
@@ -27,6 +28,14 @@ FROM clips
   ) client_accent_list ON clips.client_id = client_accent_list.client_id
   and client_accent_list.locale_id = clips.locale_id
   LEFT JOIN locales ON clips.locale_id = locales.id
+  -- Get users variant for clips locale
+  LEFT JOIN (
+    SELECT ucv.client_id,
+      ucv.locale_id,
+      v.variant_name as variant
+    FROM user_client_variants ucv
+      JOIN variants v ON v.id = ucv.variant_id
+  ) client_variant ON clips.client_id = client_variant.client_id AND clips.locale_id = client_variant.locale_id
   -- A subquery for taxonomies is faster than a full join
   LEFT JOIN (
     SELECT sentence_id,
@@ -44,5 +53,5 @@ FROM clips
       LEFT JOIN ages ON demographics.age_id = ages.id
       LEFT JOIN genders ON demographics.gender_id = genders.id
   ) demographics ON clips.id = demographics.clip_id
-WHERE (clips.created_at BETWEEN ? AND ?)
+WHERE clips.created_at BETWEEN ? AND ?
 GROUP BY clips.id
