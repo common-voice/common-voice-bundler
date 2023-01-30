@@ -119,4 +119,5 @@ function initialize() {
 
 module.exports = {
   initialize,
+  connectToDb,
 };
