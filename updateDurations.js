@@ -56,16 +56,25 @@ const batchUpdateClipsTable = async (idsAndDurations) => {
 
     const insertValues = batch.join(',');
 
+    const insertQuery =
+      `
+      INSERT INTO clips (id, client_id, path, sentence, original_sentence_id, duration)
+      VALUES ${insertValues}
+      ON DUPLICATE KEY UPDATE
+          duration = VALUES(duration);
+      `;
+
+    if (process.env.npm_config_dryRun) {
+      console.log(insertQuery);
+      start = end;
+      continue;
+    }
+
     db.beginTransaction((err) => {
       if (err) { throw err; }
 
       db.query(
-        `
-        INSERT INTO clips (id, client_id, path, sentence, original_sentence_id, duration)
-        VALUES ${insertValues}
-        ON DUPLICATE KEY UPDATE
-            duration = VALUES(duration);
-        `,
+        insertQuery,
         (err, results, fields) => {
           if (err) {
             return db.rollback(() => { throw err; });
