@@ -4,7 +4,8 @@
   "main": "index.js",
   "license": "MPL-2.0",
   "scripts": {
-    "start": "node --max-old-space-size=8192 index.js"
+    "start": "node --max-old-space-size=8192 index.js",
+    "updateDurations": "node --max-old-space-size=8192 updateDurations.js"
   },
   "dependencies": {
     "async": "^3.2.3",
