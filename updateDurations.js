@@ -56,21 +56,34 @@ const batchUpdateClipsTable = async (idsAndDurations) => {
 
     const insertValues = batch.join(',');
 
-    db.query(
-      `
-      INSERT INTO clips (id, client_id, path, sentence, original_sentence_id, duration)
-      VALUES ${insertValues}
-      ON DUPLICATE KEY UPDATE
-          duration = VALUES(duration);
-      `,
-      (err, results, fields) => {
-        if (err) throw err;
-        current += batch.length;
-        start = end;
-        console.log(`Processed ${results.affectedRows} rows.`);
-        console.log(`Progress: ${current}/${total}\n\n`);
-      }
-    );
+    db.beginTransaction((err) => {
+      if (err) { throw err; }
+
+      db.query(
+        `
+        INSERT INTO clips (id, client_id, path, sentence, original_sentence_id, duration)
+        VALUES ${insertValues}
+        ON DUPLICATE KEY UPDATE
+            duration = VALUES(duration);
+        `,
+        (err, results, fields) => {
+          if (err) {
+            return db.rollback(() => { throw err; });
+          };
+
+          db.commit((err) => {
+            if (err) {
+              return db.rollback(() => { throw err; });
+            }
+
+            current += batch.length;
+            start = end;
+            console.log(`Processed ${results.affectedRows} rows.`);
+            console.log(`Progress: ${current}/${total}\n\n`);
+          });
+        }
+      );
+    });
 
     await new Promise(resolve => setTimeout(resolve, 5000));
   }
