@@ -65,7 +65,7 @@ const batchUpdateClipsTable = async (idsAndDurations) => {
       `;
 
     if (process.env.npm_config_dryRun) {
-      console.log(insertQuery);
+      console.log(insertQuery.slice(0, 100));
       start = end;
       continue;
     }
@@ -98,13 +98,13 @@ const batchUpdateClipsTable = async (idsAndDurations) => {
   }
 };
 
-const run = () => {
+const run = async () => {
   const locales = loadStatsFromDisk(RELEASE_NAME).locales;
 
   for (const locale of locales) {
     const idsAndLocales = getIdsAndDurationFromLocale(locale);
     console.log(`Starting update for locale: '${locale}'`);
-    batchUpdateClipsTable(idsAndLocales);
+    await batchUpdateClipsTable(idsAndLocales);
   }
 };
 
