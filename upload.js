@@ -229,7 +229,8 @@ const uploadDataset = async (locales, bundlerBucket, releaseName) => {
       const metadataFiles = getMetadataFiles(localePathToDir).map((fileName) =>
         path.join(localePathToDir, fileName)
       );
-      localeDir = await getClipList(releaseName, locale).map((fileName) =>
+      const clipList = await getClipList(releaseName, locale);
+      localeDir = clipList.map((fileName) =>
         path.join(localePathToDir, 'clips', fileName)
       ); //for delta, this is an array of paths
       console.log(
