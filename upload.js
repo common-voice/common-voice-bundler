@@ -218,11 +218,24 @@ const uploadDataset = async (locales, bundlerBucket, releaseName) => {
   }
   // Internal helper function to zip and upload a single locale in Promise format
   const tarLocale = async (locale) => {
+    const labelName = `${releaseName}-${locale}`;
+    const existingData = getMetadataIfProcessed(releaseName, locale);
+    
+    if (existingData) {
+      console.log(
+        `${labelName}.tar.gz of size ${bytesToSize(
+          existingData[locale].size
+        )} was previously uploaded with a checksum of ${existingData[locale].checksum
+        }`
+      );
+      return new Promise((resolve) => resolve(existingData));
+    }
+
     // for full releases, this is a path,
     const localePathToDir = path.join(releaseName, locale);
     // <releaseName>/<locale_token>
     let localeDir = [localePathToDir]; // array because tar.c needs it to be
-    const labelName = `${releaseName}-${locale}`;
+
     console.log('localePathToDir', localePathToDir);
     //only upload files in clips.tsv
     if (config.get('startCutoffTime')) {
@@ -242,16 +255,6 @@ const uploadDataset = async (locales, bundlerBucket, releaseName) => {
       //join metadata paths with clip paths for uploading
       localeDir = localeDir.concat(metadataFiles);
       console.log('Concat metadata files:', metadataFiles.length);
-    }
-    const existingData = getMetadataIfProcessed(releaseName, locale);
-    if (existingData) {
-      console.log(
-        `${labelName}.tar.gz of size ${bytesToSize(
-          existingData[locale].size
-        )} was previously uploaded with a checksum of ${existingData[locale].checksum
-        }`
-      );
-      return new Promise((resolve) => resolve(existingData));
     }
 
     return tarAndUploadBundle(
