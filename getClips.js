@@ -155,7 +155,7 @@ const processAndDownloadClips = (
     }
     
     // Main query for bundling
-    db.query(fs.readFileSync(queryFile, 'utf-8'), queryParameters
+    db.query(fs.readFileSync(queryFile, 'utf-8'), queryParameters)
       .on('result', (dbRow) => {
         const row = dbRow;
         rowIndex++;
