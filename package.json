@@ -9,7 +9,7 @@
   "dependencies": {
     "async": "^3.2.3",
     "aws-sdk": "^2.814.0",
-    "convict": "^4.4.1",
+    "convict": "^6.2.4",
     "dotenv": "^8.2.0",
     "fast-csv": "^4.3.6",
     "fluent-ffmpeg": "^2.1.2",
